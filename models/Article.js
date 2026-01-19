@@ -6,6 +6,10 @@ const articleSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    cloudinary_id: {
+      type: String,
+      required: true,
+    },
     title: {
       type: String,
       required: true,

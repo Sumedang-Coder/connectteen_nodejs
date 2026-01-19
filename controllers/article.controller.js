@@ -1,12 +1,19 @@
+const { sanitizeArticle, sanitizeArticles } = require("../helpers/utils");
 const Article = require("../models/Article");
+const cloudinary = require('cloudinary').v2;
 
 // CREATE artikel
 exports.createArticle = async (req, res) => {
   try {
-    const { image_url, title, description } = req.body;
+    const { title, description } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "Harap unggah gambar" });
+    }
 
     const article = new Article({
-      image_url,
+      image_url: req.file.path,
+      cloudinary_id: req.file.filename,
       title,
       description,
     });
@@ -15,7 +22,7 @@ exports.createArticle = async (req, res) => {
 
     res.status(201).json({
       message: "Article created successfully",
-      data: article,
+      data: sanitizeArticle(article),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -29,7 +36,7 @@ exports.getAllArticles = async (req, res) => {
 
     res.status(200).json({
       message: "Articles retrieved successfully",
-      data: articles,
+      data: sanitizeArticles(articles),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -47,7 +54,7 @@ exports.getArticleById = async (req, res) => {
 
     res.status(200).json({
       message: "Article retrieved successfully",
-      data: article,
+      data: sanitizeArticle(article),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -57,21 +64,29 @@ exports.getArticleById = async (req, res) => {
 // UPDATE artikel
 exports.updateArticle = async (req, res) => {
   try {
-    const { image_url, title, description } = req.body;
+    let article = await Article.findById(req.params.id);
+    if (!article) return res.status(404).json({ message: "Article not found" });
 
-    const article = await Article.findByIdAndUpdate(
-      req.params.id,
-      { image_url, title, description },
-      { new: true, runValidators: true }
-    );
+    let data = {
+      title: req.body.title || article.title,
+      description: req.body.description || article.description,
+    };
 
-    if (!article) {
-      return res.status(404).json({ message: "Article not found" });
+    if (req.file) {
+      await cloudinary.uploader.destroy(article.cloudinary_id);
+      
+      data.image_url = req.file.path;
+      data.cloudinary_id = req.file.filename;
     }
+
+    article = await Article.findByIdAndUpdate(req.params.id, data, {
+      new: true,
+      runValidators: true,
+    });
 
     res.status(200).json({
       message: "Article updated successfully",
-      data: article,
+      data: sanitizeArticle(article),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -81,14 +96,18 @@ exports.updateArticle = async (req, res) => {
 // DELETE artikel
 exports.deleteArticle = async (req, res) => {
   try {
-    const article = await Article.findByIdAndDelete(req.params.id);
+    const article = await Article.findById(req.params.id);
 
     if (!article) {
       return res.status(404).json({ message: "Article not found" });
     }
 
+    await cloudinary.uploader.destroy(article.cloudinary_id);
+
+    await article.deleteOne();
+
     res.status(200).json({
-      message: "Article deleted successfully",
+      message: "Article and associated image deleted successfully",
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

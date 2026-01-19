@@ -14,6 +14,18 @@ const eventSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    description: {
+      type: String,
+      required: true,
+    },
+    image_url: {
+      type: String,
+      required: true,
+    },
+    cloudinary_id: {
+      type: String,
+      required: true,
+    },
     users: [
       {
         type: mongoose.Schema.Types.ObjectId,

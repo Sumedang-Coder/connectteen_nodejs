@@ -5,7 +5,7 @@ require("dotenv").config();
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  process.env.REDIRECT_URI
+  process.env.REDIRECT_URI,
 );
 
 const scopes = [
@@ -44,9 +44,46 @@ const sanitizeMessages = (messages) =>
     updated_at: msg.updatedAt,
   }));
 
+const sanitizeArticle = (article) => ({
+  id: article._id,
+  title: article.title,
+  description: article.description,
+  image_url: article.image_url,
+  // cloudinary_id: article.cloudinary_id, // Masukkan ini jika frontend admin membutuhkannya
+  created_at: article.createdAt,
+  updated_at: article.updatedAt,
+});
+
+const sanitizeArticles = (articles) =>
+  articles.map((article) => ({
+    id: article._id,
+    title: article.title,
+    description: article.description,
+    image_url: article.image_url,
+    created_at: article.createdAt,
+    updated_at: article.updatedAt,
+  }));
+
+const sanitizeEvent = (event) => ({
+  id: event._id,
+  event_title: event.event_title,
+  description:event.description,
+  date: event.date,
+  location: event.location,
+  image_url: event.image_url,
+  registrants_count: event.users ? event.users.length : 0,
+  created_at: event.createdAt,
+});
+
+const sanitizeEvents = (events) => events.map((event) => sanitizeEvent(event));
+
 module.exports = {
   authorizationUrl,
   oauth2Client,
   sanitizeMessage,
   sanitizeMessages,
+  sanitizeArticle,
+  sanitizeArticles,
+  sanitizeEvent,
+  sanitizeEvents
 };
