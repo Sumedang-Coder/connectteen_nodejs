@@ -1,6 +1,6 @@
 const { sanitizeEvent, sanitizeEvents } = require("../helpers/utils");
 const Event = require("../models/Event");
-const cloudinary = require('cloudinary').v2;
+const cloudinary = require("cloudinary").v2;
 
 /**
  * CREATE EVENT (admin)
@@ -21,7 +21,7 @@ exports.createEvent = async (req, res) => {
       date: new Date(date),
       location,
       description,
-      image_url: req.file.path,  
+      image_url: req.file.path,
       cloudinary_id: req.file.filename,
     });
 
@@ -41,10 +41,13 @@ exports.createEvent = async (req, res) => {
  */
 exports.getEvents = async (req, res) => {
   try {
+    const userId = req.user ? req.user.id : null;
     const events = await Event.find().sort({ date: 1 });
+
     res.json({
       success: true,
-      data: sanitizeEvents(events),
+      // Kirim userId ke fungsi sanitize
+      data: sanitizeEvents(events, userId),
     });
   } catch (error) {
     console.error("[GET_EVENTS]", error);
@@ -87,6 +90,7 @@ exports.deleteEvent = async (req, res) => {
  */
 exports.getEventById = async (req, res) => {
   try {
+    const userId = req.user ? req.user.id : null;
     const event = await Event.findById(req.params.id);
 
     if (!event) {
@@ -98,7 +102,7 @@ exports.getEventById = async (req, res) => {
 
     res.json({
       success: true,
-      data: sanitizeEvent(event),
+      data: sanitizeEvent(event, userId),
     });
   } catch (error) {
     console.error("[GET_EVENT_BY_ID]", error);
@@ -116,7 +120,7 @@ exports.getRegistrants = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id).populate(
       "users",
-      "name no_hp email avatarUrl"
+      "name no_hp email avatarUrl",
     );
 
     if (!event) {
@@ -170,6 +174,7 @@ exports.registerEvent = async (req, res) => {
     res.json({
       success: true,
       message: "Berhasil mendaftar event",
+      data: sanitizeEvent(event, userId)
     });
   } catch (error) {
     console.error("[REGISTER_EVENT]", error);
@@ -195,7 +200,7 @@ exports.updateEvent = async (req, res) => {
     }
 
     const { event_title, date, location, description } = req.body;
-    
+
     let updateData = {
       event_title: event_title || event.event_title,
       date: date ? new Date(date) : event.date,
@@ -215,7 +220,7 @@ exports.updateEvent = async (req, res) => {
     event = await Event.findByIdAndUpdate(
       req.params.id,
       { $set: updateData },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     res.json({

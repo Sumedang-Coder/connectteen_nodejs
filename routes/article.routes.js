@@ -15,15 +15,11 @@ router.post(
 
 router.get(
   "/articles",
-  authMiddleware,
-  adminOnly,
   articleController.getAllArticles
 );
 
 router.get(
   "/articles/:id",
-  authMiddleware,
-  adminOnly,
   articleController.getArticleById
 );
 

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const eventController = require("../controllers/event.controller");
-const { authMiddleware, adminOnly } = require("../middleware/auth");
+const { authMiddleware, adminOnly, optionalAuth } = require("../middleware/auth");
 const upload = require("../helpers/cloudinaryConfig");
 
 // admin
@@ -27,8 +27,8 @@ router.put(
 );
 
 // public / user
-router.get("/events", eventController.getEvents);
-router.get("/events/:id", eventController.getEventById);
+router.get("/events", optionalAuth, eventController.getEvents);
+router.get("/events/:id", optionalAuth, eventController.getEventById);
 router.post(
   "/events/:id/register",
   authMiddleware,

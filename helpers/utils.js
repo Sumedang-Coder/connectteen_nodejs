@@ -64,18 +64,22 @@ const sanitizeArticles = (articles) =>
     updated_at: article.updatedAt,
   }));
 
-const sanitizeEvent = (event) => ({
+const sanitizeEvent = (event, currentUserId) => ({
   id: event._id,
   event_title: event.event_title,
-  description:event.description,
+  description: event.description,
   date: event.date,
   location: event.location,
   image_url: event.image_url,
   registrants_count: event.users ? event.users.length : 0,
+  isRegistered: currentUserId 
+    ? event.users.some(id => id.toString() === currentUserId.toString()) 
+    : false,
   created_at: event.createdAt,
 });
 
-const sanitizeEvents = (events) => events.map((event) => sanitizeEvent(event));
+const sanitizeEvents = (events, currentUserId) => 
+  events.map((event) => sanitizeEvent(event, currentUserId));
 
 module.exports = {
   authorizationUrl,
