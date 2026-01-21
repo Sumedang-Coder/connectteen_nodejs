@@ -150,7 +150,7 @@ exports.getRegistrants = async (req, res) => {
 exports.registerEvent = async (req, res) => {
   try {
     const eventId = req.params.id;
-    const userId = req.user.id; // dari auth middleware
+    const userId = req.user.id;
 
     const event = await Event.findById(eventId);
     if (!event) {
@@ -160,24 +160,26 @@ exports.registerEvent = async (req, res) => {
       });
     }
 
-    // Cegah double register
-    if (event.users.includes(userId)) {
-      return res.status(400).json({
-        success: false,
-        message: "User sudah terdaftar",
-      });
+    const userIndex = event.users.indexOf(userId);
+    let message = "";
+
+    if (userIndex !== -1) {
+      event.users.splice(userIndex, 1);
+      message = "Pendaftaran dibatalkan";
+    } else {
+      event.users.push(userId);
+      message = "Berhasil mendaftar event";
     }
 
-    event.users.push(userId);
     await event.save();
 
     res.json({
       success: true,
-      message: "Berhasil mendaftar event",
+      message: message,
       data: sanitizeEvent(event, userId)
     });
   } catch (error) {
-    console.error("[REGISTER_EVENT]", error);
+    console.error("[TOGGLE_REGISTER_EVENT]", error);
     res.status(500).json({
       success: false,
       message: "Kesalahan server",
