@@ -1,4 +1,7 @@
 const User = require("../models/User");
+const Article = require("../models/Article");
+const Event = require("../models/Event");
+const Message = require("../models/Message");
 const bcrypt = require("bcryptjs");
 const { generateAnonymousName } = require("../helpers/generateAnonymousName");
 const { sanitizeUser, sanitizeUsers } = require("../helpers/auth");
@@ -8,8 +11,8 @@ const getAdmin = async (req, res) => {
     const { search, limit = 10 } = req.query;
 
     const query = {
-      role: { 
-        $eq: "admin",    
+      role: {
+        $eq: "admin",
         $ne: "super admin"
       }
     };
@@ -131,5 +134,31 @@ const deleteAdmin = async (req, res) => {
   }
 };
 
-module.exports = { getAdmin, registerAdminOnly, updateAdmin, deleteAdmin };
+const getStats = async (req, res) => {
+  try {
+    const [messageCount, eventCount, userCount, articleCount] = await Promise.all([
+      Message.countDocuments(),
+      Event.countDocuments(),
+      User.countDocuments(),
+      Article.countDocuments(),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        messages: messageCount,
+        events: eventCount,
+        users: userCount,
+        articles: articleCount,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+module.exports = { getAdmin, registerAdminOnly, updateAdmin, deleteAdmin, getStats };
 

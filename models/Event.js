@@ -18,6 +18,20 @@ const eventSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    quota: {
+      type: Number,
+      default: 0,
+    },
+    status: {
+      type: String,
+      enum: ["open", "full", "closed"],
+      default: "open",
+    },
+    visibility: {
+      type: String,
+      enum: ["public", "private"],
+      default: "public",
+    },
     image_url: {
       type: String,
       required: true,
