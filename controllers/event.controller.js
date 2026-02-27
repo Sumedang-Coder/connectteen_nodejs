@@ -68,6 +68,9 @@ exports.getEvents = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(limit);
 
+    const currentPage = parseInt(page);
+    const hasNextPage = currentPage < totalPages;
+
     res.json({
       success: true,
       message: "Events retrieved successfully",
@@ -75,8 +78,10 @@ exports.getEvents = async (req, res) => {
       pagination: {
         totalEvents,
         totalPages,
-        currentPage: parseInt(page),
+        currentPage,
         limit: parseInt(limit),
+        hasNextPage,
+        nextPage: hasNextPage ? currentPage + 1 : null,
       },
     });
   } catch (error) {
@@ -148,22 +153,46 @@ exports.getEventById = async (req, res) => {
  */
 exports.getRegistrants = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id).populate(
-      "users",
-      "name no_hp email avatarUrl",
-    );
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    if (!event) {
+    // Get total count first
+    const eventCount = await Event.findById(req.params.id).select("users");
+    if (!eventCount) {
       return res.status(404).json({
         success: false,
         message: "Event tidak ditemukan",
       });
     }
 
+    const totalRegistrants = eventCount.users.length;
+    const totalPages = Math.ceil(totalRegistrants / parseInt(limit));
+
+    // Populate with pagination
+    const event = await Event.findById(req.params.id).populate({
+      path: "users",
+      select: "name no_hp email avatarUrl",
+      options: {
+        skip: skip,
+        limit: parseInt(limit),
+      },
+    });
+
+    const currentPage = parseInt(page);
+    const hasNextPage = currentPage < totalPages;
+
     res.json({
       success: true,
-      total: event.users.length,
+      message: "Registrants retrieved successfully",
       data: event.users,
+      pagination: {
+        totalRegistrants,
+        totalPages,
+        currentPage,
+        limit: parseInt(limit),
+        hasNextPage,
+        nextPage: hasNextPage ? currentPage + 1 : null,
+      },
     });
   } catch (error) {
     console.error("[GET_REGISTRANTS]", error);

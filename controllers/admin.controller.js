@@ -8,7 +8,8 @@ const { sanitizeUser, sanitizeUsers } = require("../helpers/auth");
 
 const getAdmin = async (req, res) => {
   try {
-    const { search, limit = 10 } = req.query;
+    const { search, page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const query = {
       role: {
@@ -24,13 +25,28 @@ const getAdmin = async (req, res) => {
       ];
     }
 
+    const totalUsers = await User.countDocuments(query);
+    const totalPages = Math.ceil(totalUsers / parseInt(limit));
+
     const users = await User.find(query)
       .sort({ createdAt: -1 })
+      .skip(skip)
       .limit(Number(limit));
+
+    const currentPage = parseInt(page);
+    const hasNextPage = currentPage < totalPages;
 
     res.status(200).json({
       success: true,
       data: sanitizeUsers(users),
+      pagination: {
+        totalUsers,
+        totalPages,
+        currentPage,
+        limit: parseInt(limit),
+        hasNextPage,
+        nextPage: hasNextPage ? currentPage + 1 : null,
+      },
     });
   } catch (error) {
     res.status(500).json({

@@ -65,6 +65,9 @@ exports.getMessages = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(Number(limit));
 
+    const currentPage = parseInt(page);
+    const hasNextPage = currentPage < totalPages;
+
     res.status(200).json({
       success: true,
       message: "Messages retrieved successfully",
@@ -72,8 +75,10 @@ exports.getMessages = async (req, res) => {
       pagination: {
         totalMessages,
         totalPages,
-        currentPage: parseInt(page),
+        currentPage,
         limit: parseInt(limit),
+        hasNextPage,
+        nextPage: hasNextPage ? currentPage + 1 : null,
       },
     });
   } catch (error) {

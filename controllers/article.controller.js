@@ -50,14 +50,19 @@ exports.getAllArticles = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(limit);
 
+    const currentPage = parseInt(page);
+    const hasNextPage = currentPage < totalPages;
+
     res.status(200).json({
       message: "Articles retrieved successfully",
       data: sanitizeArticles(articles),
       pagination: {
         totalArticles,
         totalPages,
-        currentPage: parseInt(page),
+        currentPage,
         limit: parseInt(limit),
+        hasNextPage,
+        nextPage: hasNextPage ? currentPage + 1 : null,
       },
     });
   } catch (error) {
