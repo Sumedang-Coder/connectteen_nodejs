@@ -106,7 +106,11 @@ const loginAdmin = async (req, res) => {
         .json({ success: false, message: "Email dan password wajib diisi" });
     }
 
-    const user = await User.findOne({ email, role: "admin" });
+    const adminRoles = ["super_admin", "content_editor", "viewer", "admin"];
+    const user = await User.findOne({
+      email,
+      role: { $in: adminRoles }
+    });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res
@@ -114,7 +118,19 @@ const loginAdmin = async (req, res) => {
         .json({ success: false, message: "Email atau password salah" });
     }
 
-    const token = signJwt({ id: user._id, role: "admin" }, "1d");
+    if (user.status === "suspended") {
+      return res.status(403).json({ success: false, message: "Akun Anda telah ditangguhkan. Silakan hubungi Super Admin." });
+    }
+
+    if (user.status === "invited") {
+      return res.status(403).json({ success: false, message: "Akun Anda belum diaktifkan. Silakan cek email undangan Anda." });
+    }
+
+    // 🕒 Update Last Login
+    user.lastLogin = new Date();
+    await user.save();
+
+    const token = signJwt({ id: user._id, role: user.role }, "1d");
 
     setAuthCookie(res, token, 24 * 60 * 60 * 1000);
 

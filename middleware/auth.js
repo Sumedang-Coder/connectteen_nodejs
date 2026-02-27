@@ -46,14 +46,52 @@ const authMiddleware = (req, res, next) => {
 /* =========================
    AUTHORIZATION
 ========================= */
-const adminOnly = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
+
+const ADMIN_ROLES = ["super_admin", "content_editor", "viewer"];
+
+const anyAdmin = (req, res, next) => {
+  if (!req.user || !ADMIN_ROLES.includes(req.user.role)) {
     return res.status(403).json({
       success: false,
-      message: "Akses ditolak. Admin only.",
+      message: "Akses ditolak. Admin access required.",
+    });
+  }
+
+  // Implicitly, we should check status here if we fetch the whole user from DB,
+  // but for token-based simple check, we assume token is valid. 
+  // For high-security, we'd check DB status: active.
+
+  return next();
+};
+
+const contentManager = (req, res, next) => {
+  if (!req.user || !["super_admin", "content_editor"].includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Akses ditolak. Permission to modify content required.",
     });
   }
   return next();
 };
 
-module.exports = { authMiddleware, adminOnly, optionalAuth};
+const superAdminOnly = (req, res, next) => {
+  if (!req.user || req.user.role !== "super_admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Akses ditolak. Super Admin only.",
+    });
+  }
+  return next();
+};
+
+// Legacy support if needed, or replace
+const adminOnly = anyAdmin;
+
+module.exports = {
+  authMiddleware,
+  adminOnly,
+  anyAdmin,
+  contentManager,
+  superAdminOnly,
+  optionalAuth
+};

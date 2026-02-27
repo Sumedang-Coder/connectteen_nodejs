@@ -5,6 +5,7 @@ const Message = require("../models/Message");
 const bcrypt = require("bcryptjs");
 const { generateAnonymousName } = require("../helpers/generateAnonymousName");
 const { sanitizeUser, sanitizeUsers } = require("../helpers/auth");
+const crypto = require("crypto");
 
 const getAdmin = async (req, res) => {
   try {
@@ -13,8 +14,7 @@ const getAdmin = async (req, res) => {
 
     const query = {
       role: {
-        $eq: "admin",
-        $ne: "super admin"
+        $in: ["super_admin", "content_editor", "viewer"]
       }
     };
 
@@ -58,11 +58,13 @@ const getAdmin = async (req, res) => {
 
 const registerAdminOnly = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ success: false, message: "Akses ditolak" });
+    const { name, email, password, role = "content_editor" } = req.body;
+
+    // Safety check: Only super_admin can create other super_admins
+    if (role === "super_admin" && req.user.role !== "super_admin") {
+      return res.status(403).json({ success: false, message: "Hanya Super Admin yang bisa membuat Super Admin lain" });
     }
 
-    const { name, email, password } = req.body;
     if (!email || !password) {
       return res
         .status(400)
@@ -79,7 +81,8 @@ const registerAdminOnly = async (req, res) => {
       name,
       email,
       password: await bcrypt.hash(password, 10),
-      role: "admin",
+      role,
+      status: "active",
       anonymous_name: await generateAnonymousName(),
     });
 
@@ -99,9 +102,9 @@ const registerAdminOnly = async (req, res) => {
 const updateAdmin = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, password } = req.body;
+    const { name, email, password, role, status } = req.body;
 
-    const user = await User.findOne({ _id: id, role: "admin" });
+    const user = await User.findById(id);
 
     if (!user) {
       return res.status(404).json({
@@ -114,6 +117,12 @@ const updateAdmin = async (req, res) => {
     if (email) user.email = email;
     if (password) {
       user.password = await bcrypt.hash(password, 10);
+    }
+
+    // Only super_admin can change roles or status
+    if (req.user.role === "super_admin") {
+      if (role) user.role = role;
+      if (status) user.status = status;
     }
 
     await user.save();
@@ -132,14 +141,17 @@ const deleteAdmin = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deletedUser = await User.findOneAndDelete({ _id: id, role: "admin" });
-
-    if (!deletedUser) {
-      return res.status(404).json({
-        success: false,
-        message: "Admin tidak ditemukan atau tidak dapat dihapus",
-      });
+    const targetUser = await User.findById(id);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: "Admin tidak ditemukan" });
     }
+
+    // Protection: Cannot delete super_admin unless you are also super_admin (and maybe not even then if it's the last one)
+    if (targetUser.role === "super_admin") {
+      return res.status(403).json({ success: false, message: "Super Admin tidak dapat dihapus secara langsung" });
+    }
+
+    await User.findByIdAndDelete(id);
 
     res.status(200).json({
       success: true,
@@ -176,5 +188,114 @@ const getStats = async (req, res) => {
   }
 };
 
-module.exports = { getAdmin, registerAdminOnly, updateAdmin, deleteAdmin, getStats };
+const inviteAdmin = async (req, res) => {
+  try {
+    const { email, role = "content_editor" } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email wajib diisi" });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: "Email sudah terdaftar" });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    const user = await User.create({
+      email,
+      role,
+      status: "invited",
+      invitationToken: token,
+      invitationExpires: expires,
+      anonymous_name: await generateAnonymousName(), // Temporary
+    });
+
+    // In production, send email here. For now, return token.
+    res.status(201).json({
+      success: true,
+      message: "Undangan admin berhasil dibuat",
+      data: {
+        email: user.email,
+        role: user.role,
+        invitationToken: token,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const validateInvite = async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    const user = await User.findOne({
+      invitationToken: token,
+      invitationExpires: { $gt: Date.now() },
+      status: "invited",
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Token tidak valid atau sudah kadaluarsa" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Token valid",
+      data: { email: user.email, role: user.role },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const joinAdmin = async (req, res) => {
+  try {
+    const { token, name, password } = req.body;
+
+    if (!token || !name || !password) {
+      return res.status(400).json({ success: false, message: "Data tidak lengkap" });
+    }
+
+    const user = await User.findOne({
+      invitationToken: token,
+      invitationExpires: { $gt: Date.now() },
+      status: "invited",
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Undangan tidak valid" });
+    }
+
+    user.name = name;
+    user.password = await bcrypt.hash(password, 10);
+    user.status = "active";
+    user.invitationToken = undefined;
+    user.invitationExpires = undefined;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Akun admin berhasil diaktifkan. Silakan login.",
+      data: sanitizeUser(user),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports = {
+  getAdmin,
+  registerAdminOnly,
+  updateAdmin,
+  deleteAdmin,
+  getStats,
+  inviteAdmin,
+  validateInvite,
+  joinAdmin
+};
 

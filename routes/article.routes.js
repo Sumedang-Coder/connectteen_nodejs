@@ -1,14 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const articleController = require("../controllers/article.controller");
-const { authMiddleware, adminOnly } = require("../middleware/auth");
+const { authMiddleware, contentManager } = require("../middleware/auth");
 
-const upload = require("../helpers/cloudinaryConfig"); 
+const upload = require("../helpers/cloudinaryConfig");
 
 router.post(
   "/articles",
   authMiddleware,
-  adminOnly,
+  contentManager,
   upload.single("image"),
   articleController.createArticle
 );
@@ -26,7 +26,7 @@ router.get(
 router.put(
   "/articles/:id",
   authMiddleware,
-  adminOnly,
+  contentManager,
   upload.single("image"),
   articleController.updateArticle
 );
@@ -34,7 +34,7 @@ router.put(
 router.delete(
   "/articles/:id",
   authMiddleware,
-  adminOnly,
+  contentManager,
   articleController.deleteArticle
 );
 

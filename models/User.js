@@ -32,8 +32,27 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["admin", "user", "guest"],
+      enum: ["super_admin", "content_editor", "viewer", "user", "guest"],
       default: "guest",
+    },
+
+    status: {
+      type: String,
+      enum: ["active", "suspended", "invited"],
+      default: "active",
+    },
+
+    invitationToken: {
+      type: String,
+      sparse: true,
+    },
+
+    invitationExpires: {
+      type: Date,
+    },
+
+    lastLogin: {
+      type: Date,
     },
 
     avatarUrl: {

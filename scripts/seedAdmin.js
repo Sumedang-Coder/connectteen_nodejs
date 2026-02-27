@@ -13,9 +13,9 @@ const seedAdmin = async () => {
         // 2. Define Admin Data
         const adminData = {
             name: "Super Admin",
-            email: "admin@connectteen.com",
+            email: "admin@gmail.com",
             password: "adminpassword123", // You can change this
-            role: "admin",
+            role: "super_admin",
             isGuest: false,
             anonymous_name: "MasterTeen",
         };

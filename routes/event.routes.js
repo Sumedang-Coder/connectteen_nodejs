@@ -1,28 +1,28 @@
 const express = require("express");
 const router = express.Router();
 const eventController = require("../controllers/event.controller");
-const { authMiddleware, adminOnly, optionalAuth } = require("../middleware/auth");
+const { authMiddleware, contentManager, anyAdmin, optionalAuth } = require("../middleware/auth");
 const upload = require("../helpers/cloudinaryConfig");
 
 // admin
-router.post("/events", authMiddleware, adminOnly, upload.single("image"), eventController.createEvent);
+router.post("/events", authMiddleware, contentManager, upload.single("image"), eventController.createEvent);
 router.delete(
   "/events/:id",
   authMiddleware,
-  adminOnly,
+  contentManager,
   eventController.deleteEvent
 );
 router.get(
   "/events/:id/registrants",
   authMiddleware,
-  adminOnly,
+  anyAdmin,
   eventController.getRegistrants
 );
 router.put(
   "/events/:id",
   authMiddleware,
-  adminOnly,
-  upload.single("image"), 
+  contentManager,
+  upload.single("image"),
   eventController.updateEvent
 );
 
