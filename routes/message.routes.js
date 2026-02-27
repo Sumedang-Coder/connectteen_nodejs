@@ -5,14 +5,16 @@ const {
   getMessagesHistory,
   getOneMessage,
   getMessages,
+  getSecretMessages,
   deleteMessage,
 } = require("../controllers/message.controller");
-const { authMiddleware, contentManager, anyAdmin } = require("../middleware/auth");
+const { authMiddleware, contentManager, anyAdmin, optionalAuth } = require("../middleware/auth");
 
 router.post("/messages", authMiddleware, sendMessage);
-router.get("/messages", authMiddleware, anyAdmin, getMessages);
+router.get("/messages", getMessages);
+router.get("/messages/secret", authMiddleware, anyAdmin, getSecretMessages);
 router.get("/messages/me", authMiddleware, getMessagesHistory);
-router.get("/messages/:id", authMiddleware, anyAdmin, getOneMessage);
+router.get("/messages/:id", optionalAuth, getOneMessage);
 router.delete("/messages/:id", authMiddleware, contentManager, deleteMessage);
 
 module.exports = router;

@@ -47,10 +47,10 @@ exports.getMessages = async (req, res) => {
     const { search, page = 1, limit = 10, sort = "-createdAt" } = req.query;
 
     const query = {
-      recipient_name: { $regex: "^admin$", $options: "i" }
+      recipient_name: { $nin: [/admin/i] }
     };
 
-    // Search within admin messages
+    // Search within public messages
     if (search) {
       query.$or = [
         { message: { $regex: search, $options: "i" } },
@@ -89,6 +89,46 @@ exports.getMessages = async (req, res) => {
   }
 };
 
+exports.getSecretMessages = async (req, res) => {
+  try {
+    const { search, page = 1, limit = 10, sort = "-createdAt" } = req.query;
+
+    const query = {
+      recipient_name: { $regex: "^admin$", $options: "i" }
+    };
+
+    if (search) {
+      query.$or = [{ message: { $regex: search, $options: "i" } }];
+    }
+
+    const totalMessages = await Message.countDocuments(query);
+    const totalPages = Math.ceil(totalMessages / limit);
+
+    const messages = await Message.find(query)
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    const currentPage = parseInt(page);
+    const hasNextPage = currentPage < totalPages;
+
+    res.status(200).json({
+      success: true,
+      data: sanitizeMessages(messages),
+      pagination: {
+        totalMessages,
+        totalPages,
+        currentPage,
+        limit: parseInt(limit),
+        hasNextPage,
+        nextPage: hasNextPage ? currentPage + 1 : null,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 exports.getMessagesHistory = async (req, res) => {
   try {
     const messages = await Message.find({ user: req.user.id })
@@ -120,10 +160,16 @@ exports.getOneMessage = async (req, res) => {
       });
     }
 
-    const message = await Message.findOne({
-      _id: id,
-      recipient_name: { $regex: "^admin$", $options: "i" }
-    });
+    const ADMIN_ROLES = ["super_admin", "content_editor", "viewer", "user"];
+    const isAdmin = req.user && ADMIN_ROLES.includes(req.user.role);
+
+    const query = { _id: id };
+    if (!isAdmin) {
+      // Non-admins can only see public messages
+      query.recipient_name = { $nin: [/admin/i] };
+    }
+
+    const message = await Message.findOne(query);
 
     if (!message) {
       return res.status(404).json({
@@ -155,10 +201,7 @@ exports.deleteMessage = async (req, res) => {
       });
     }
 
-    const message = await Message.findOne({
-      _id: id,
-      recipient_name: { $regex: "^admin$", $options: "i" }
-    });
+    const message = await Message.findById(id);
 
     if (!message) {
       return res.status(404).json({
@@ -167,10 +210,7 @@ exports.deleteMessage = async (req, res) => {
       });
     }
 
-    await Message.findOneAndDelete({
-      _id: id,
-      recipient_name: { $regex: "^admin$", $options: "i" }
-    });
+    await Message.findByIdAndDelete(id);
 
     res.status(200).json({
       success: true,

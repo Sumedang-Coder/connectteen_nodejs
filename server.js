@@ -43,7 +43,7 @@ const authLimiter = rateLimit({
 });
 
 app.use(limiter); // Global limiter for all routes
-app.use("/api/auth/login-admin", authLimiter);
+app.use("/api/auth/admin/login", authLimiter);
 app.use("/api/admin/invite", authLimiter);
 
 app.use(
