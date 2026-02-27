@@ -1,15 +1,19 @@
 const User = require("../models/User");
+const Article = require("../models/Article");
+const Event = require("../models/Event");
+const Message = require("../models/Message");
 const bcrypt = require("bcryptjs");
 const { generateAnonymousName } = require("../helpers/generateAnonymousName");
 const { sanitizeUser, sanitizeUsers } = require("../helpers/auth");
 
 const getAdmin = async (req, res) => {
   try {
-    const { search, limit = 10 } = req.query;
+    const { search, page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const query = {
-      role: { 
-        $eq: "admin",    
+      role: {
+        $eq: "admin",
         $ne: "super admin"
       }
     };
@@ -21,13 +25,28 @@ const getAdmin = async (req, res) => {
       ];
     }
 
+    const totalUsers = await User.countDocuments(query);
+    const totalPages = Math.ceil(totalUsers / parseInt(limit));
+
     const users = await User.find(query)
       .sort({ createdAt: -1 })
+      .skip(skip)
       .limit(Number(limit));
+
+    const currentPage = parseInt(page);
+    const hasNextPage = currentPage < totalPages;
 
     res.status(200).json({
       success: true,
       data: sanitizeUsers(users),
+      pagination: {
+        totalUsers,
+        totalPages,
+        currentPage,
+        limit: parseInt(limit),
+        hasNextPage,
+        nextPage: hasNextPage ? currentPage + 1 : null,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -131,5 +150,31 @@ const deleteAdmin = async (req, res) => {
   }
 };
 
-module.exports = { getAdmin, registerAdminOnly, updateAdmin, deleteAdmin };
+const getStats = async (req, res) => {
+  try {
+    const [messageCount, eventCount, userCount, articleCount] = await Promise.all([
+      Message.countDocuments(),
+      Event.countDocuments(),
+      User.countDocuments(),
+      Article.countDocuments(),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        messages: messageCount,
+        events: eventCount,
+        users: userCount,
+        articles: articleCount,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+module.exports = { getAdmin, registerAdminOnly, updateAdmin, deleteAdmin, getStats };
 

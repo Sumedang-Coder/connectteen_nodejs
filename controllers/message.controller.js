@@ -44,25 +44,42 @@ exports.sendMessage = async (req, res) => {
 
 exports.getMessages = async (req, res) => {
   try {
-    const { search, limit = 10 } = req.query;
+    const { search, page = 1, limit = 10, sort = "-createdAt" } = req.query;
 
-    const query = {};
+    const query = {
+      recipient_name: { $regex: "^admin$", $options: "i" }
+    };
 
-    // Search recipient_name & message
+    // Search within admin messages
     if (search) {
       query.$or = [
-        { recipient_name: { $regex: search, $options: "i" } },
         { message: { $regex: search, $options: "i" } },
       ];
     }
 
+    const totalMessages = await Message.countDocuments(query);
+    const totalPages = Math.ceil(totalMessages / limit);
+
     const messages = await Message.find(query)
-      .sort({ createdAt: -1 })
+      .sort(sort)
+      .skip((page - 1) * limit)
       .limit(Number(limit));
+
+    const currentPage = parseInt(page);
+    const hasNextPage = currentPage < totalPages;
 
     res.status(200).json({
       success: true,
+      message: "Messages retrieved successfully",
       data: sanitizeMessages(messages),
+      pagination: {
+        totalMessages,
+        totalPages,
+        currentPage,
+        limit: parseInt(limit),
+        hasNextPage,
+        nextPage: hasNextPage ? currentPage + 1 : null,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -103,7 +120,10 @@ exports.getOneMessage = async (req, res) => {
       });
     }
 
-    const message = await Message.findById(id);
+    const message = await Message.findOne({
+      _id: id,
+      recipient_name: { $regex: "^admin$", $options: "i" }
+    });
 
     if (!message) {
       return res.status(404).json({
@@ -135,7 +155,10 @@ exports.deleteMessage = async (req, res) => {
       });
     }
 
-    const message = await Message.findById(id);
+    const message = await Message.findOne({
+      _id: id,
+      recipient_name: { $regex: "^admin$", $options: "i" }
+    });
 
     if (!message) {
       return res.status(404).json({
@@ -144,7 +167,10 @@ exports.deleteMessage = async (req, res) => {
       });
     }
 
-    await Message.findByIdAndDelete(id);
+    await Message.findOneAndDelete({
+      _id: id,
+      recipient_name: { $regex: "^admin$", $options: "i" }
+    });
 
     res.status(200).json({
       success: true,

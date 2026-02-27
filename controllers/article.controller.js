@@ -29,14 +29,41 @@ exports.createArticle = async (req, res) => {
   }
 };
 
-// READ semua artikel
+// READ semua artikel dengan search, pagination, dan sort
 exports.getAllArticles = async (req, res) => {
   try {
-    const articles = await Article.find().sort({ createdAt: -1 });
+    const { search, page = 1, limit = 10, sort = "-createdAt" } = req.query;
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const totalArticles = await Article.countDocuments(query);
+    const totalPages = Math.ceil(totalArticles / limit);
+
+    const articles = await Article.find(query)
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const currentPage = parseInt(page);
+    const hasNextPage = currentPage < totalPages;
 
     res.status(200).json({
       message: "Articles retrieved successfully",
       data: sanitizeArticles(articles),
+      pagination: {
+        totalArticles,
+        totalPages,
+        currentPage,
+        limit: parseInt(limit),
+        hasNextPage,
+        nextPage: hasNextPage ? currentPage + 1 : null,
+      },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -74,7 +101,7 @@ exports.updateArticle = async (req, res) => {
 
     if (req.file) {
       await cloudinary.uploader.destroy(article.cloudinary_id);
-      
+
       data.image_url = req.file.path;
       data.cloudinary_id = req.file.filename;
     }

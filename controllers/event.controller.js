@@ -7,7 +7,7 @@ const cloudinary = require("cloudinary").v2;
  */
 exports.createEvent = async (req, res) => {
   try {
-    const { event_title, date, location, description } = req.body;
+    const { event_title, date, location, description, quota, visibility } = req.body;
 
     if (!event_title || !date || !location || !req.file || !description) {
       return res.status(400).json({
@@ -21,6 +21,8 @@ exports.createEvent = async (req, res) => {
       date: new Date(date),
       location,
       description,
+      quota: parseInt(quota) || 0,
+      visibility: visibility || "public",
       image_url: req.file.path,
       cloudinary_id: req.file.filename,
     });
@@ -41,13 +43,46 @@ exports.createEvent = async (req, res) => {
  */
 exports.getEvents = async (req, res) => {
   try {
+    const { search, page = 1, limit = 10, sort = "-createdAt" } = req.query;
     const userId = req.user ? req.user.id : null;
-    const events = await Event.find().sort({ date: 1 });
+    const userRole = req.user ? req.user.role : "guest";
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { event_title: { $regex: search, $options: "i" } },
+        { location: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Filter by visibility if not admin
+    if (userRole !== "admin") {
+      query.visibility = "public";
+    }
+
+    const totalEvents = await Event.countDocuments(query);
+    const totalPages = Math.ceil(totalEvents / limit);
+
+    const events = await Event.find(query)
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const currentPage = parseInt(page);
+    const hasNextPage = currentPage < totalPages;
 
     res.json({
       success: true,
-      // Kirim userId ke fungsi sanitize
+      message: "Events retrieved successfully",
       data: sanitizeEvents(events, userId),
+      pagination: {
+        totalEvents,
+        totalPages,
+        currentPage,
+        limit: parseInt(limit),
+        hasNextPage,
+        nextPage: hasNextPage ? currentPage + 1 : null,
+      },
     });
   } catch (error) {
     console.error("[GET_EVENTS]", error);
@@ -118,22 +153,46 @@ exports.getEventById = async (req, res) => {
  */
 exports.getRegistrants = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id).populate(
-      "users",
-      "name no_hp email avatarUrl",
-    );
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    if (!event) {
+    // Get total count first
+    const eventCount = await Event.findById(req.params.id).select("users");
+    if (!eventCount) {
       return res.status(404).json({
         success: false,
         message: "Event tidak ditemukan",
       });
     }
 
+    const totalRegistrants = eventCount.users.length;
+    const totalPages = Math.ceil(totalRegistrants / parseInt(limit));
+
+    // Populate with pagination
+    const event = await Event.findById(req.params.id).populate({
+      path: "users",
+      select: "name no_hp email avatarUrl",
+      options: {
+        skip: skip,
+        limit: parseInt(limit),
+      },
+    });
+
+    const currentPage = parseInt(page);
+    const hasNextPage = currentPage < totalPages;
+
     res.json({
       success: true,
-      total: event.users.length,
+      message: "Registrants retrieved successfully",
       data: event.users,
+      pagination: {
+        totalRegistrants,
+        totalPages,
+        currentPage,
+        limit: parseInt(limit),
+        hasNextPage,
+        nextPage: hasNextPage ? currentPage + 1 : null,
+      },
     });
   } catch (error) {
     console.error("[GET_REGISTRANTS]", error);
@@ -164,9 +223,19 @@ exports.registerEvent = async (req, res) => {
     let message = "";
 
     if (userIndex !== -1) {
+      // Allow unregistration regardless of status
       event.users.splice(userIndex, 1);
       message = "Pendaftaran dibatalkan";
     } else {
+      // Check if event is closed or full
+      if (event.status === "closed") {
+        return res.status(400).json({ success: false, message: "Pendaftaran event ini sudah ditutup" });
+      }
+
+      if (event.quota > 0 && event.users.length >= event.quota) {
+        return res.status(400).json({ success: false, message: "Kuota event sudah penuh" });
+      }
+
       event.users.push(userId);
       message = "Berhasil mendaftar event";
     }
@@ -201,13 +270,16 @@ exports.updateEvent = async (req, res) => {
       });
     }
 
-    const { event_title, date, location, description } = req.body;
+    const { event_title, date, location, description, quota, status, visibility } = req.body;
 
     let updateData = {
       event_title: event_title || event.event_title,
       date: date ? new Date(date) : event.date,
       location: location || event.location,
       description: description || event.description,
+      quota: quota !== undefined ? parseInt(quota) : event.quota,
+      status: status || event.status,
+      visibility: visibility || event.visibility,
     };
 
     if (req.file) {
