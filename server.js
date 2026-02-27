@@ -2,6 +2,8 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 require("dotenv").config();
 
@@ -14,7 +16,36 @@ const adminRouter = require("./routes/admin.routes");
 
 const app = express();
 
+// Trust proxy is needed if behind Nginx/Vercel/Heroku
+app.set('trust proxy', 1);
+
 /* =================== MIDDLEWARE =================== */
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Terlalu banyak permintaan dari IP ini, silakan coba lagi nanti."
+  }
+});
+
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Terlalu banyak percobaan, silakan coba lagi dalam satu jam."
+  }
+});
+
+app.use(limiter); // Global limiter for all routes
+app.use("/api/auth/login-admin", authLimiter);
+app.use("/api/admin/invite", authLimiter);
+
 app.use(
   cors({
     origin: ["http://localhost:3000", "https://www.connectteenedu.com"],
@@ -22,6 +53,8 @@ app.use(
   })
 );
 
+
+app.use(helmet());
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -39,12 +72,12 @@ const connectDB = async () => {
       serverSelectionTimeoutMS: 10000,
       maxPoolSize: 10,
     });
-    
+
     isConnected = db.connections[0].readyState;
     console.log("MongoDB connected successfully");
   } catch (error) {
     console.error("MongoDB connection failed:", error.message);
-    throw error; 
+    throw error;
   }
 };
 
@@ -54,10 +87,10 @@ app.use(async (req, res, next) => {
     await connectDB();
     next();
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Database connection error",
-      error: error.message 
+      error: error.message
     });
   }
 });
