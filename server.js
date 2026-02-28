@@ -13,7 +13,7 @@ const messageRouter = require("./routes/message.routes");
 const articleRouter = require("./routes/article.routes");
 const eventRouter = require("./routes/event.routes");
 const adminRouter = require("./routes/admin.routes");
-const { swaggerUi, specs } = require("./config/swagger");
+const { swaggerUi, specs, swaggerOptions } = require("./config/swagger");
 
 const app = express();
 
@@ -101,7 +101,7 @@ app.get("/", (req, res) => {
 });
 
 // Swagger Documentation
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs, swaggerOptions));
 
 app.use("/api", musicRouter);
 app.use("/api/auth", authRouter);
