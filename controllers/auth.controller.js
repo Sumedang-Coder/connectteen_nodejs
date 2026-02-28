@@ -106,7 +106,7 @@ const loginAdmin = async (req, res) => {
         .json({ success: false, message: "Email dan password wajib diisi" });
     }
 
-    const adminRoles = ["super_admin", "content_editor", "viewer", "admin"];
+    const adminRoles = ["super_admin", "content_editor", "viewer"];
     const user = await User.findOne({
       email,
       role: { $in: adminRoles }

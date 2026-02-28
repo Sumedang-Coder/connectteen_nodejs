@@ -13,6 +13,7 @@ const messageRouter = require("./routes/message.routes");
 const articleRouter = require("./routes/article.routes");
 const eventRouter = require("./routes/event.routes");
 const adminRouter = require("./routes/admin.routes");
+const { swaggerUi, specs } = require("./config/swagger");
 
 const app = express();
 
@@ -98,6 +99,9 @@ app.use(async (req, res, next) => {
 app.get("/", (req, res) => {
   res.json("Hello World - ConnectTeen API is Active");
 });
+
+// Swagger Documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
 app.use("/api", musicRouter);
 app.use("/api/auth", authRouter);
