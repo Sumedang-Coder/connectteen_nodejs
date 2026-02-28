@@ -45,7 +45,6 @@ exports.getEvents = async (req, res) => {
   try {
     const { search, page = 1, limit = 10, sort = "-createdAt" } = req.query;
     const userId = req.user ? req.user.id : null;
-    const userRole = req.user ? req.user.role : "guest";
 
     const query = {};
     if (search) {
@@ -53,12 +52,6 @@ exports.getEvents = async (req, res) => {
         { event_title: { $regex: search, $options: "i" } },
         { location: { $regex: search, $options: "i" } },
       ];
-    }
-
-    // Filter by visibility if not admin
-    const ADMIN_ROLES = ["super_admin", "content_editor", "viewer"];
-    if (!ADMIN_ROLES.includes(userRole)) {
-      query.visibility = "public";
     }
 
     const totalEvents = await Event.countDocuments(query);
