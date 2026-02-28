@@ -56,7 +56,8 @@ exports.getEvents = async (req, res) => {
     }
 
     // Filter by visibility if not admin
-    if (userRole !== "admin") {
+    const ADMIN_ROLES = ["super_admin", "content_editor", "viewer"];
+    if (!ADMIN_ROLES.includes(userRole)) {
       query.visibility = "public";
     }
 
@@ -121,17 +122,27 @@ exports.deleteEvent = async (req, res) => {
 };
 
 /**
- * GET SINGLE EVENT (optional tapi berguna)
+ * GET SINGLE EVENT
  */
 exports.getEventById = async (req, res) => {
   try {
     const userId = req.user ? req.user.id : null;
+    const userRole = req.user ? req.user.role : "guest";
     const event = await Event.findById(req.params.id);
 
     if (!event) {
       return res.status(404).json({
         success: false,
         message: "Event tidak ditemukan",
+      });
+    }
+
+    // Visibility check for non-admins
+    const ADMIN_ROLES = ["super_admin", "content_editor", "viewer"];
+    if (event.visibility === "private" && !ADMIN_ROLES.includes(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: "Akses ditolak. Event ini bersifat privat.",
       });
     }
 
