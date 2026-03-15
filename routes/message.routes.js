@@ -6,6 +6,7 @@ const {
   getOneMessage,
   getMessages,
   getSecretMessages,
+  addReaction,
   deleteMessage,
 } = require("../controllers/message.controller");
 const { authMiddleware, contentManager, anyAdmin, optionalAuth } = require("../middleware/auth");
@@ -122,5 +123,45 @@ router.get("/messages/:id", optionalAuth, getOneMessage);
  *         description: Message not found
  */
 router.delete("/messages/:id", authMiddleware, contentManager, deleteMessage);
+
+const { addComment, getComments, addReply } = require("../controllers/comment.controller");
+
+// ... existing routes ...
+
+/**
+ * @swagger
+ * /api/messages/{id}/react:
+ *   post:
+ *     summary: Add a reaction to a message
+ *     tags: [Messages]
+ */
+router.post("/messages/:id/react", authMiddleware, addReaction);
+
+/**
+ * @swagger
+ * /api/messages/{id}/comments:
+ *   post:
+ *     summary: Add a comment to a message
+ *     tags: [Messages]
+ */
+router.post("/messages/:id/comments", optionalAuth, addComment);
+
+/**
+ * @swagger
+ * /api/messages/{id}/comments:
+ *   get:
+ *     summary: Get all comments for a message
+ *     tags: [Messages]
+ */
+router.get("/messages/:id/comments", getComments);
+
+/**
+ * @swagger
+ * /api/comments/{commentId}/reply:
+ *   post:
+ *     summary: Add a reply to a comment
+ *     tags: [Messages]
+ */
+router.post("/comments/:commentId/reply", optionalAuth, addReply);
 
 module.exports = router;

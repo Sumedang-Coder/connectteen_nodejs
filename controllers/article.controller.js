@@ -1,5 +1,9 @@
+const mongoose = require("mongoose");
 const { sanitizeArticle, sanitizeArticles } = require("../helpers/utils");
 const Article = require("../models/Article");
+const Reaction = require("../models/Reaction");
+const Comment = require("../models/Comment");
+const User = require("../models/User");
 const cloudinary = require('cloudinary').v2;
 
 // CREATE artikel
@@ -79,9 +83,16 @@ exports.getArticleById = async (req, res) => {
       return res.status(404).json({ message: "Article not found" });
     }
 
+    const userReaction = req.user
+      ? await Reaction.findOne({ userId: req.user.id, targetId: req.params.id, targetType: "Article" })
+      : null;
+
     res.status(200).json({
       message: "Article retrieved successfully",
-      data: sanitizeArticle(article),
+      data: {
+        ...sanitizeArticle(article),
+        userReaction: userReaction ? userReaction.type : null,
+      },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -138,5 +149,136 @@ exports.deleteArticle = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+// REACTION & COMMENT FOR ARTICLES
+
+exports.addArticleReaction = async (req, res) => {
+  try {
+    const articleId = req.params.id ? req.params.id.trim() : null;
+    const { type } = req.body; 
+    const userId = req.user?.id;
+
+    if (!articleId) {
+      return res.status(400).json({ success: false, message: "ID Artikel wajib diisi" });
+    }
+
+    const validReactions = ["heart", "laugh", "like", "wow", "sad"];
+    if (type && !validReactions.includes(type)) {
+      return res.status(400).json({ success: false, message: "Tipe reaksi tidak valid" });
+    }
+
+    const existingReaction = await Reaction.findOne({ userId, targetId: articleId, targetType: "Article" });
+
+    if (existingReaction) {
+      if (!type) {
+        await Reaction.findByIdAndDelete(existingReaction._id);
+      } else if (existingReaction.type !== type) {
+        existingReaction.type = type;
+        await existingReaction.save();
+      }
+    } else if (type) {
+      try {
+        await Reaction.create({ userId, targetId: articleId, targetType: "Article", type });
+      } catch (err) {
+        if (err.code === 11000) {
+          const raceReaction = await Reaction.findOne({ userId, targetId: articleId, targetType: "Article" });
+          if (raceReaction && raceReaction.type !== type) {
+            raceReaction.type = type;
+            await raceReaction.save();
+          }
+        } else throw err;
+      }
+    }
+
+    // GROUND TRUTH SYNC: Recalculate all counts for this article
+    const counts = await Reaction.aggregate([
+      { $match: { targetId: new mongoose.Types.ObjectId(articleId), targetType: "Article" } },
+      { $group: { _id: "$type", count: { $sum: 1 } } }
+    ]);
+
+    const newReactionCounts = { heart: 0, laugh: 0, like: 0, wow: 0, sad: 0 };
+    counts.forEach(c => {
+      if (newReactionCounts.hasOwnProperty(c._id)) {
+        newReactionCounts[c._id] = c.count;
+      }
+    });
+
+    const updatedArticle = await Article.findByIdAndUpdate(
+      articleId,
+      { reactions: newReactionCounts },
+      { new: true }
+    );
+
+    if (!updatedArticle) {
+      return res.status(404).json({ success: false, message: "Article tidak ditemukan" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        allReactions: updatedArticle.reactions,
+        userReaction: type || null
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getArticleComments = async (req, res) => {
+  try {
+    const { id: articleId } = req.params;
+    const comments = await Comment.find({ targetId: articleId, targetType: "Article" }).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: comments,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.addArticleComment = async (req, res) => {
+  try {
+    const articleId = req.params.id ? req.params.id.trim() : null;
+    const { name, message } = req.body;
+
+    if (!articleId) {
+      return res.status(400).json({ success: false, message: "ID Artikel wajib diisi" });
+    }
+
+    let commentName = name ? name.trim() : "Anonymous";
+    let commentAvatar = null;
+
+    if (req.user) {
+      const user = await User.findById(req.user.id);
+      if (user) {
+        commentName = user.name || user.anonymous_name || "User";
+        commentAvatar = user.avatarUrl;
+      }
+    }
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ success: false, message: "Pesan wajib diisi" });
+    }
+
+    const commentMessage = message.trim();
+
+    const newComment = await Comment.create({
+      targetId: articleId,
+      targetType: "Article",
+      name: commentName,
+      avatarUrl: commentAvatar,
+      message: commentMessage,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: newComment,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

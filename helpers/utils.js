@@ -19,47 +19,49 @@ const authorizationUrl = oauth2Client.generateAuthUrl({
   include_granted_scopes: true,
 });
 
-const sanitizeMessage = (message) => ({
-  id: message.id,
-  recipient_name: message.recipient_name,
-  message: message.message,
-  song_id: message.song_id,
-  song_image: message.song_image,
-  song_artist: message.song_artist,
-  song_name: message.song_name,
-  created_at: message.createdAt,
-  updated_at: message.updatedAt,
-});
+const sanitizeMessage = (message) => {
+  const senderName = message.is_anonymous 
+    ? (message.user?.anonymous_name || "Anonymous") 
+    : (message.user?.name || "Unknown");
+
+  return {
+    id: message.id,
+    recipient_name: message.recipient_name,
+    message: message.message,
+    song_id: message.song_id,
+    song_image: message.song_image,
+    song_artist: message.song_artist,
+    song_name: message.song_name,
+    preview_url: message.preview_url,
+    sender_name: senderName,
+    is_anonymous: message.is_anonymous,
+    is_admin_only: message.is_admin_only,
+    reactions: message.reactions || { heart: 0, laugh: 0, like: 0, wow: 0, sad: 0 },
+    created_at: message.createdAt,
+    updated_at: message.updatedAt,
+  };
+};
 
 const sanitizeMessages = (messages) =>
-  messages.map((msg) => ({
-    id: msg.id,
-    recipient_name: msg.recipient_name,
-    message: msg.message,
-    song_id: msg.song_id,
-    song_image: msg.song_image,
-    song_artist: msg.song_artist,
-    song_name: msg.song_name,
-    created_at: msg.createdAt,
-    updated_at: msg.updatedAt,
-  }));
+  messages.map((msg) => sanitizeMessage(msg));
 
 const sanitizeArticle = (article) => ({
-  id: article._id,
+  id: article._id.toString(),
   title: article.title,
   description: article.description,
   image_url: article.image_url,
-  // cloudinary_id: article.cloudinary_id, // Masukkan ini jika frontend admin membutuhkannya
+  reactions: article.reactions || { heart: 0, laugh: 0, like: 0, wow: 0, sad: 0 },
   created_at: article.createdAt,
   updated_at: article.updatedAt,
 });
 
 const sanitizeArticles = (articles) =>
   articles.map((article) => ({
-    id: article._id,
+    id: article._id.toString(),
     title: article.title,
     description: article.description,
     image_url: article.image_url,
+    reactions: article.reactions || { heart: 0, laugh: 0, like: 0, wow: 0, sad: 0 },
     created_at: article.createdAt,
     updated_at: article.updatedAt,
   }));
