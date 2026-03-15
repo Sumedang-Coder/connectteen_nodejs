@@ -18,6 +18,13 @@ const articleSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    reactions: {
+      heart: { type: Number, default: 0 },
+      laugh: { type: Number, default: 0 },
+      like: { type: Number, default: 0 },
+      wow: { type: Number, default: 0 },
+      sad: { type: Number, default: 0 },
+    },
   },
   { timestamps: true }
 );

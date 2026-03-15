@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const articleController = require("../controllers/article.controller");
-const { authMiddleware, contentManager } = require("../middleware/auth");
+const { authMiddleware, contentManager, optionalAuth } = require("../middleware/auth");
 
 const upload = require("../helpers/cloudinaryConfig");
 
@@ -115,6 +115,7 @@ router.get(
  */
 router.get(
   "/articles/:id",
+  optionalAuth,
   articleController.getArticleById
 );
 
@@ -193,5 +194,9 @@ router.delete(
   contentManager,
   articleController.deleteArticle
 );
+
+router.post("/articles/:id/react", authMiddleware, articleController.addArticleReaction);
+router.get("/articles/:id/comments", articleController.getArticleComments);
+router.post("/articles/:id/comments", optionalAuth, articleController.addArticleComment);
 
 module.exports = router;

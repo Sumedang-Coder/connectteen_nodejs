@@ -1,9 +1,12 @@
+const mongoose = require("mongoose");
 const { sanitizeMessage, sanitizeMessages } = require("../helpers/utils");
 const Message = require("../models/Message");
+const Reaction = require("../models/Reaction");
+const Comment = require("../models/Comment");
 
 exports.sendMessage = async (req, res) => {
   try {
-    const { recipient_name, message, song_id, song_image, song_artist, song_name } =
+    const { recipient_name, message, song_id, song_image, song_artist, song_name, is_admin_only, is_anonymous, preview_url } =
       req.body;
 
     if (
@@ -28,6 +31,9 @@ exports.sendMessage = async (req, res) => {
       song_artist,
       song_name,
       user: req.user.id,
+      is_admin_only: is_admin_only || false,
+      is_anonymous: is_anonymous !== undefined ? is_anonymous : true,
+      preview_url,
     });
 
     res.status(201).json({
@@ -47,7 +53,7 @@ exports.getMessages = async (req, res) => {
     const { search, page = 1, limit = 10, sort = "-createdAt" } = req.query;
 
     const query = {
-      recipient_name: { $nin: [/admin/i] }
+      is_admin_only: false,
     };
 
     // Search within public messages
@@ -63,7 +69,8 @@ exports.getMessages = async (req, res) => {
     const messages = await Message.find(query)
       .sort(sort)
       .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .limit(Number(limit))
+      .populate("user", "name anonymous_name");
 
     const currentPage = parseInt(page);
     const hasNextPage = currentPage < totalPages;
@@ -94,7 +101,7 @@ exports.getSecretMessages = async (req, res) => {
     const { search, page = 1, limit = 10, sort = "-createdAt" } = req.query;
 
     const query = {
-      recipient_name: { $regex: "^admin$", $options: "i" }
+      is_admin_only: true
     };
 
     if (search) {
@@ -107,7 +114,8 @@ exports.getSecretMessages = async (req, res) => {
     const messages = await Message.find(query)
       .sort(sort)
       .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .limit(Number(limit))
+      .populate("user", "name anonymous_name");
 
     const currentPage = parseInt(page);
     const hasNextPage = currentPage < totalPages;
@@ -133,7 +141,7 @@ exports.getMessagesHistory = async (req, res) => {
   try {
     const messages = await Message.find({ user: req.user.id })
       .sort({ createdAt: -1 })
-      .populate("user", "name email");
+      .populate("user", "name email anonymous_name");
 
     res.status(200).json({
       success: true,
@@ -147,7 +155,7 @@ exports.getMessagesHistory = async (req, res) => {
   }
 };
 
-const mongoose = require("mongoose");
+
 
 exports.getOneMessage = async (req, res) => {
   try {
@@ -169,7 +177,7 @@ exports.getOneMessage = async (req, res) => {
       query.recipient_name = { $nin: [/admin/i] };
     }
 
-    const message = await Message.findOne(query);
+    const message = await Message.findOne(query).populate("user", "name anonymous_name");
 
     if (!message) {
       return res.status(404).json({
@@ -178,15 +186,100 @@ exports.getOneMessage = async (req, res) => {
       });
     }
 
+    const userReaction = req.user 
+      ? await Reaction.findOne({ userId: req.user.id, targetId: id, targetType: "Message" })
+      : null;
+
     res.status(200).json({
       success: true,
-      data: sanitizeMessage(message),
+      data: {
+        ...sanitizeMessage(message),
+        userReaction: userReaction ? userReaction.type : null,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: error.message,
     });
+  }
+};
+
+exports.addReaction = async (req, res) => {
+  try {
+    const { id: messageId } = req.params;
+    const { type } = req.body; // Target state: "heart", etc., or null to remove
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(404).json({ success: false, message: "ID Message tidak valid" });
+    }
+
+    const validReactions = ["heart", "laugh", "like", "wow", "sad"];
+    if (type && !validReactions.includes(type)) {
+      return res.status(400).json({ success: false, message: "Tipe reaksi tidak valid" });
+    }
+
+    const existingReaction = await Reaction.findOne({ userId, targetId: messageId, targetType: "Message" });
+
+    if (existingReaction) {
+      if (!type) {
+        // Remove reaction
+        await Reaction.findByIdAndDelete(existingReaction._id);
+      } else if (existingReaction.type !== type) {
+        // Change type
+        existingReaction.type = type;
+        await existingReaction.save();
+      }
+    } else if (type) {
+      // Add new reaction with race condition protection
+      try {
+        await Reaction.create({ userId, targetId: messageId, targetType: "Message", type });
+      } catch (err) {
+        if (err.code === 11000) {
+          // Double click race: ensure the type is correct if it already exists
+          const raceReaction = await Reaction.findOne({ userId, targetId: messageId, targetType: "Message" });
+          if (raceReaction && raceReaction.type !== type) {
+            raceReaction.type = type;
+            await raceReaction.save();
+          }
+        } else throw err;
+      }
+    }
+
+    // GROUND TRUTH SYNC: Recalculate all counts for this message from actual docs
+    const counts = await Reaction.aggregate([
+      { $match: { targetId: new mongoose.Types.ObjectId(messageId), targetType: "Message" } },
+      { $group: { _id: "$type", count: { $sum: 1 } } }
+    ]);
+
+    const newReactionCounts = { heart: 0, laugh: 0, like: 0, wow: 0, sad: 0 };
+    counts.forEach(c => {
+      if (newReactionCounts.hasOwnProperty(c._id)) {
+        newReactionCounts[c._id] = c.count;
+      }
+    });
+
+    // Update Message model with fresh aggregate
+    const updatedMessage = await Message.findByIdAndUpdate(
+      messageId,
+      { reactions: newReactionCounts },
+      { new: true }
+    );
+
+    if (!updatedMessage) {
+      return res.status(404).json({ success: false, message: "Message tidak ditemukan" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        allReactions: updatedMessage.reactions,
+        userReaction: type || null
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -211,6 +304,10 @@ exports.deleteMessage = async (req, res) => {
     }
 
     await Message.findByIdAndDelete(id);
+
+    // Cascade delete associated data
+    await Reaction.deleteMany({ targetId: id, targetType: "Message" });
+    await Comment.deleteMany({ targetId: id, targetType: "Message" });
 
     res.status(200).json({
       success: true,
