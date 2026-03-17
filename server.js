@@ -122,6 +122,10 @@ app.use("/api", articleRouter);
 app.use("/api", eventRouter);
 app.use("/api", adminRouter);
 
+// Global Error Handler
+const errorHandler = require("./middleware/error.middleware");
+app.use(errorHandler);
+
 /* =================== SERVER =================== */
 if (process.env.NODE_ENV !== "production") {
   const PORT = process.env.PORT || 5000;
