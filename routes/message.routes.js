@@ -122,7 +122,7 @@ router.get("/messages/:id", optionalAuth, getOneMessage);
  *       404:
  *         description: Message not found
  */
-router.delete("/messages/:id", authMiddleware, contentManager, deleteMessage);
+router.delete("/messages/:id", authMiddleware, deleteMessage);
 
 const { addComment, getComments, addReply } = require("../controllers/comment.controller");
 

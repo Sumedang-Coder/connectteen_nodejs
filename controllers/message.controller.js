@@ -303,6 +303,17 @@ exports.deleteMessage = async (req, res) => {
       });
     }
 
+    // Permission check: Owner OR Admin (super_admin, content_editor)
+    const isOwner = message.user.toString() === req.user.id;
+    const isAdmin = ["super_admin", "content_editor"].includes(req.user.role);
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Akses ditolak. Anda tidak memiliki izin untuk menghapus pesan ini.",
+      });
+    }
+
     await Message.findByIdAndDelete(id);
 
     // Cascade delete associated data
