@@ -5,10 +5,11 @@ const signJwt = (payload, expiresIn) => {
 };
 
 const setAuthCookie = (res, token, maxAge) => {
+  const isProduction = process.env.NODE_ENV === "production";
   res.cookie("token", token, {
     httpOnly: true,
-    secure: true,
-    sameSite: "none",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
     maxAge,
     path: "/",
   });
@@ -22,6 +23,7 @@ const sanitizeUser = (user) => ({
   avatarUrl: user.avatarUrl,
   anonymous_name: user.anonymous_name,
   no_hp: user.no_hp,
+  isGuest: user.isGuest,
 });
 
 const sanitizeUsers = (users) => users.map((user) => ({
@@ -32,6 +34,7 @@ const sanitizeUsers = (users) => users.map((user) => ({
   avatarUrl: user.avatarUrl,
   anonymous_name: user.anonymous_name,
   no_hp: user.no_hp,
+  isGuest: user.isGuest,
 }));
 
 module.exports = { signJwt, setAuthCookie, sanitizeUser, sanitizeUsers };

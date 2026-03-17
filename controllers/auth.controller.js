@@ -206,20 +206,17 @@ const guestLogin = async (req, res) => {
       guestUser = await User.create({
         guestId,
         role: "guest",
+        isGuest: true,
         anonymous_name: await generateAnonymousName(),
       });
     }
 
-    const token = jwt.sign(
+    const token = signJwt(
       { id: guestUser._id, role: guestUser.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" },
+      "1d",
     );
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-    });
+    setAuthCookie(res, token, 24 * 60 * 60 * 1000);
 
     res.json({
       success: true,
