@@ -2,12 +2,10 @@ const express = require("express");
 const {
   googleSignIn,
   googleSignInCallback,
-  registerAdminOnly,
   loginAdmin,
   getAuthenticated,
   guestLogin,
   logout,
-  getAdmin,
 } = require("../controllers/auth.controller");
 const {
   authMiddleware,

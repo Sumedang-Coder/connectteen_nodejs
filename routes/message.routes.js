@@ -122,7 +122,7 @@ router.get("/messages/:id", optionalAuth, getOneMessage);
  *       404:
  *         description: Message not found
  */
-router.delete("/messages/:id", authMiddleware, contentManager, deleteMessage);
+router.delete("/messages/:id", authMiddleware, deleteMessage);
 
 const { addComment, getComments, addReply } = require("../controllers/comment.controller");
 
@@ -144,7 +144,7 @@ router.post("/messages/:id/react", authMiddleware, addReaction);
  *     summary: Add a comment to a message
  *     tags: [Messages]
  */
-router.post("/messages/:id/comments", optionalAuth, addComment);
+router.post("/messages/:id/comments", authMiddleware, addComment);
 
 /**
  * @swagger
@@ -162,6 +162,6 @@ router.get("/messages/:id/comments", getComments);
  *     summary: Add a reply to a comment
  *     tags: [Messages]
  */
-router.post("/comments/:commentId/reply", optionalAuth, addReply);
+router.post("/comments/:commentId/reply", authMiddleware, addReply);
 
 module.exports = router;

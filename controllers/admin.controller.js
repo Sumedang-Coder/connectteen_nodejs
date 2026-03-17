@@ -146,9 +146,23 @@ const deleteAdmin = async (req, res) => {
       return res.status(404).json({ success: false, message: "Admin tidak ditemukan" });
     }
 
-    // Protection: Cannot delete super_admin unless you are also super_admin (and maybe not even then if it's the last one)
+    // 1. Prevent self-deletion
+    if (id === req.user.id) {
+      return res.status(400).json({ success: false, message: "Anda tidak dapat menghapus akun Anda sendiri" });
+    }
+
+    // 2. Protection for super_admin
     if (targetUser.role === "super_admin") {
-      return res.status(403).json({ success: false, message: "Super Admin tidak dapat dihapus secara langsung" });
+      // Only super_admin can delete other super_admins (middleware already checks this, but extra safety)
+      if (req.user.role !== "super_admin") {
+        return res.status(403).json({ success: false, message: "Hanya Super Admin yang dapat menghapus Super Admin lain" });
+      }
+
+      // Check if this is the last super_admin
+      const superAdminCount = await User.countDocuments({ role: "super_admin" });
+      if (superAdminCount <= 1) {
+        return res.status(400).json({ success: false, message: "Tidak dapat menghapus Super Admin terakhir di sistem" });
+      }
     }
 
     await User.findByIdAndDelete(id);
@@ -201,26 +215,27 @@ const inviteAdmin = async (req, res) => {
       return res.status(409).json({ success: false, message: "Email sudah terdaftar" });
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     const user = await User.create({
       email,
       role,
       status: "invited",
-      invitationToken: token,
+      invitationToken: hashedToken,
       invitationExpires: expires,
       anonymous_name: await generateAnonymousName(), // Temporary
     });
 
-    // In production, send email here. For now, return token.
+    // In production, send email here. For now, return raw token.
     res.status(201).json({
       success: true,
       message: "Undangan admin berhasil dibuat",
       data: {
         email: user.email,
         role: user.role,
-        invitationToken: token,
+        invitationToken: rawToken,
       },
     });
   } catch (error) {
@@ -232,8 +247,10 @@ const validateInvite = async (req, res) => {
   try {
     const { token } = req.query;
 
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
     const user = await User.findOne({
-      invitationToken: token,
+      invitationToken: hashedToken,
       invitationExpires: { $gt: Date.now() },
       status: "invited",
     });
@@ -260,8 +277,10 @@ const joinAdmin = async (req, res) => {
       return res.status(400).json({ success: false, message: "Data tidak lengkap" });
     }
 
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
     const user = await User.findOne({
-      invitationToken: token,
+      invitationToken: hashedToken,
       invitationExpires: { $gt: Date.now() },
       status: "invited",
     });
