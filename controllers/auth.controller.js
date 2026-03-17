@@ -194,9 +194,13 @@ const guestLogin = async (req, res) => {
     if (!guestId) {
       guestId = `guest_${Date.now()}`;
 
+      const isProduction = process.env.NODE_ENV === "production";
       res.cookie("guest_id", guestId, {
         httpOnly: true,
         maxAge: 30 * 24 * 60 * 60 * 1000,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
+        path: "/",
       });
     }
 
@@ -212,7 +216,7 @@ const guestLogin = async (req, res) => {
     }
 
     const token = signJwt(
-      { id: guestUser._id, role: guestUser.role },
+      { id: guestUser._id.toString(), role: guestUser.role },
       "1d",
     );
 
@@ -223,7 +227,8 @@ const guestLogin = async (req, res) => {
       user: sanitizeUser(guestUser),
     });
   } catch (err) {
-    res.status(500).json({ message: "Guest login failed" });
+    console.error("[GUEST_LOGIN_ERROR]", err);
+    res.status(500).json({ success: false, message: "Guest login failed", error: err.message });
   }
 };
 
