@@ -5,31 +5,49 @@ const Reaction = require("../models/Reaction");
 const Comment = require("../models/Comment");
 const User = require("../models/User");
 const cloudinary = require('cloudinary').v2;
+const sanitizeHtml = require('sanitize-html');
 
 // CREATE artikel
 exports.createArticle = async (req, res) => {
   try {
     const { title, description } = req.body;
 
-    if (!req.file) {
-      return res.status(400).json({ message: "Harap unggah gambar" });
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: "Judul wajib diisi" });
     }
+    if (title.length > 200) {
+      return res.status(400).json({ success: false, message: "Judul maksimal 200 karakter" });
+    }
+    if (!description || !description.trim()) {
+      return res.status(400).json({ success: false, message: "Konten artikel wajib diisi" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "Harap unggah gambar" });
+    }
+
+    // Sanitize description HTML from Tiptap
+    const cleanDescription = sanitizeHtml(description, {
+      allowedTags: ['b', 'i', 'em', 'strong', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'blockquote', 'img'],
+      allowedAttributes: { 'img': ['src', 'alt'] }
+    });
 
     const article = new Article({
       image_url: req.file.path,
       cloudinary_id: req.file.filename,
-      title,
-      description,
+      title: title.trim(),
+      description: cleanDescription,
     });
 
     await article.save();
 
     res.status(201).json({
+      success: true,
       message: "Article created successfully",
       data: sanitizeArticle(article),
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -58,6 +76,7 @@ exports.getAllArticles = async (req, res) => {
     const hasNextPage = currentPage < totalPages;
 
     res.status(200).json({
+      success: true,
       message: "Articles retrieved successfully",
       data: sanitizeArticles(articles),
       pagination: {
@@ -70,7 +89,7 @@ exports.getAllArticles = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -88,6 +107,7 @@ exports.getArticleById = async (req, res) => {
       : null;
 
     res.status(200).json({
+      success: true,
       message: "Article retrieved successfully",
       data: {
         ...sanitizeArticle(article),
@@ -95,7 +115,7 @@ exports.getArticleById = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -103,15 +123,34 @@ exports.getArticleById = async (req, res) => {
 exports.updateArticle = async (req, res) => {
   try {
     let article = await Article.findById(req.params.id);
-    if (!article) return res.status(404).json({ message: "Article not found" });
+    if (!article) return res.status(404).json({ success: false, message: "Article not found" });
+
+    const title = req.body.title?.trim() || article.title;
+    const rawDescription = req.body.description || article.description;
+
+    // Sanitize description if it's changing
+    let cleanDescription = rawDescription;
+    if (req.body.description) {
+      cleanDescription = sanitizeHtml(rawDescription, {
+        allowedTags: ['b', 'i', 'em', 'strong', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'blockquote', 'img'],
+        allowedAttributes: { 'img': ['src', 'alt'] }
+      });
+    }
 
     let data = {
-      title: req.body.title || article.title,
-      description: req.body.description || article.description,
+      title,
+      description: cleanDescription,
     };
 
     if (req.file) {
-      await cloudinary.uploader.destroy(article.cloudinary_id);
+      // Safe Cloudinary delete
+      if (article.cloudinary_id) {
+        try {
+          await cloudinary.uploader.destroy(article.cloudinary_id);
+        } catch (err) {
+          console.error('[CLOUDINARY_DELETE_FAIL]', article.cloudinary_id, err.message);
+        }
+      }
 
       data.image_url = req.file.path;
       data.cloudinary_id = req.file.filename;
@@ -123,11 +162,12 @@ exports.updateArticle = async (req, res) => {
     });
 
     res.status(200).json({
+      success: true,
       message: "Article updated successfully",
       data: sanitizeArticle(article),
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -137,18 +177,32 @@ exports.deleteArticle = async (req, res) => {
     const article = await Article.findById(req.params.id);
 
     if (!article) {
-      return res.status(404).json({ message: "Article not found" });
+      return res.status(404).json({ success: false, message: "Article not found" });
     }
 
-    await cloudinary.uploader.destroy(article.cloudinary_id);
+    // Safe Cloudinary delete
+    if (article.cloudinary_id) {
+      try {
+        await cloudinary.uploader.destroy(article.cloudinary_id);
+      } catch (err) {
+        console.error('[CLOUDINARY_DELETE_FAIL]', article.cloudinary_id, err.message);
+      }
+    }
+
+    // Cascade delete reactions and comments
+    await Promise.all([
+      Reaction.deleteMany({ targetId: req.params.id, targetType: "Article" }),
+      Comment.deleteMany({ targetId: req.params.id, targetType: "Article" }),
+    ]);
 
     await article.deleteOne();
 
     res.status(200).json({
-      message: "Article and associated image deleted successfully",
+      success: true,
+      message: "Article and associated data deleted successfully",
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 // REACTION & COMMENT FOR ARTICLES

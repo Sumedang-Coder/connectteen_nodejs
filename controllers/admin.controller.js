@@ -215,26 +215,27 @@ const inviteAdmin = async (req, res) => {
       return res.status(409).json({ success: false, message: "Email sudah terdaftar" });
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     const user = await User.create({
       email,
       role,
       status: "invited",
-      invitationToken: token,
+      invitationToken: hashedToken,
       invitationExpires: expires,
       anonymous_name: await generateAnonymousName(), // Temporary
     });
 
-    // In production, send email here. For now, return token.
+    // In production, send email here. For now, return raw token.
     res.status(201).json({
       success: true,
       message: "Undangan admin berhasil dibuat",
       data: {
         email: user.email,
         role: user.role,
-        invitationToken: token,
+        invitationToken: rawToken,
       },
     });
   } catch (error) {
@@ -246,8 +247,10 @@ const validateInvite = async (req, res) => {
   try {
     const { token } = req.query;
 
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
     const user = await User.findOne({
-      invitationToken: token,
+      invitationToken: hashedToken,
       invitationExpires: { $gt: Date.now() },
       status: "invited",
     });
@@ -274,8 +277,10 @@ const joinAdmin = async (req, res) => {
       return res.status(400).json({ success: false, message: "Data tidak lengkap" });
     }
 
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
     const user = await User.findOne({
-      invitationToken: token,
+      invitationToken: hashedToken,
       invitationExpires: { $gt: Date.now() },
       status: "invited",
     });

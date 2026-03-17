@@ -16,7 +16,9 @@ const optionalAuth = (req, res, next) => {
   next();
 };
 
-const authMiddleware = (req, res, next) => {
+const User = require("../models/User");
+
+const authMiddleware = async (req, res, next) => {
   const token = req.cookies?.token;
 
   if (!token) {
@@ -29,9 +31,26 @@ const authMiddleware = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // Fetch user to check status (active/suspended)
+    const user = await User.findById(decoded.id).select("role status");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User tidak ditemukan",
+      });
+    }
+
+    if (user.status === "suspended") {
+      return res.status(403).json({
+        success: false,
+        message: "Akun Anda telah ditangguhkan. Silakan hubungi Super Admin.",
+      });
+    }
+
     req.user = {
-      id: decoded.id,
-      role: decoded.role,
+      id: user._id,
+      role: user.role,
     };
 
     return next();
