@@ -69,4 +69,7 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+userSchema.index({ email: 1 }, { unique: true, sparse: true });
+userSchema.index({ guestId: 1 }, { unique: true, sparse: true });
+
 module.exports = mongoose.model("User", userSchema);

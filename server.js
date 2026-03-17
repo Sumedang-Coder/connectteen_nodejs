@@ -13,6 +13,7 @@ const messageRouter = require("./routes/message.routes");
 const articleRouter = require("./routes/article.routes");
 const eventRouter = require("./routes/event.routes");
 const adminRouter = require("./routes/admin.routes");
+const User = require("./models/User");
 const { swaggerUi, specs, swaggerOptions } = require("./config/swagger");
 
 const app = express();
@@ -88,6 +89,11 @@ const connectDB = async () => {
 
     isConnected = db.connections[0].readyState;
     console.log("MongoDB connected successfully");
+
+    // Sync indexes to ensure sparse and unique constraints are applied
+    User.syncIndexes().catch((err) => {
+      console.error("Mongoose Index Sync Error:", err.message);
+    });
   } catch (error) {
     console.error("MongoDB connection failed:", error.message);
     throw error;
