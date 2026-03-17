@@ -146,9 +146,23 @@ const deleteAdmin = async (req, res) => {
       return res.status(404).json({ success: false, message: "Admin tidak ditemukan" });
     }
 
-    // Protection: Cannot delete super_admin unless you are also super_admin (and maybe not even then if it's the last one)
+    // 1. Prevent self-deletion
+    if (id === req.user.id) {
+      return res.status(400).json({ success: false, message: "Anda tidak dapat menghapus akun Anda sendiri" });
+    }
+
+    // 2. Protection for super_admin
     if (targetUser.role === "super_admin") {
-      return res.status(403).json({ success: false, message: "Super Admin tidak dapat dihapus secara langsung" });
+      // Only super_admin can delete other super_admins (middleware already checks this, but extra safety)
+      if (req.user.role !== "super_admin") {
+        return res.status(403).json({ success: false, message: "Hanya Super Admin yang dapat menghapus Super Admin lain" });
+      }
+
+      // Check if this is the last super_admin
+      const superAdminCount = await User.countDocuments({ role: "super_admin" });
+      if (superAdminCount <= 1) {
+        return res.status(400).json({ success: false, message: "Tidak dapat menghapus Super Admin terakhir di sistem" });
+      }
     }
 
     await User.findByIdAndDelete(id);
