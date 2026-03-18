@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs");
 const { generateAnonymousName } = require("../helpers/generateAnonymousName");
 const { sanitizeUser, sanitizeUsers } = require("../helpers/auth");
 const crypto = require("crypto");
+const cloudinary = require('cloudinary').v2;
 
 const getAdmin = async (req, res) => {
   try {
@@ -117,6 +118,20 @@ const updateAdmin = async (req, res) => {
     if (email) user.email = email;
     if (password) {
       user.password = await bcrypt.hash(password, 10);
+    }
+
+    if (req.file) {
+      // Safe Cloudinary delete for old avatar
+      if (user.cloudinary_id) {
+        try {
+          await cloudinary.uploader.destroy(user.cloudinary_id);
+        } catch (err) {
+          console.error('[CLOUDINARY_DELETE_FAIL]', user.cloudinary_id, err.message);
+        }
+      }
+
+      user.avatarUrl = req.file.path;
+      user.cloudinary_id = req.file.filename;
     }
 
     // Only super_admin can change roles or status

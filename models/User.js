@@ -58,6 +58,9 @@ const userSchema = new mongoose.Schema(
     avatarUrl: {
       type: String,
     },
+    cloudinary_id: {
+      type: String,
+    },
 
     isGuest: {
       type: Boolean,

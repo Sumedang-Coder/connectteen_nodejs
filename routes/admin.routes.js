@@ -14,6 +14,7 @@ const {
   validateInvite,
   joinAdmin
 } = require("../controllers/admin.controller");
+const upload = require("../helpers/cloudinaryConfig");
 
 const router = express.Router();
 
@@ -109,7 +110,7 @@ router.post("/admin", authMiddleware, superAdminOnly, registerAdminOnly);
  *       200:
  *         description: Admin updated successfully
  */
-router.put("/admin/:id", authMiddleware, anyAdmin, updateAdmin);
+router.put("/admin/:id", authMiddleware, anyAdmin, upload.single("image"), updateAdmin);
 
 /**
  * @swagger
