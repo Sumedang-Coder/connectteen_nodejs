@@ -40,7 +40,7 @@ const router = express.Router();
  *       403:
  *         description: Access denied
  */
-router.get("/admin", authMiddleware, superAdminOnly, getAdmin);
+router.get("/admin", authMiddleware, anyAdmin, getAdmin);
 
 /**
  * @swagger
