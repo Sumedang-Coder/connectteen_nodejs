@@ -243,6 +243,168 @@ const logout = async (req, res) => {
   res.json({ success: true, message: "Logout berhasil" });
 };
 
+const verifyEmail = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({ success: false, message: "Email dan kode OTP wajib diisi" });
+        }
+
+        const user = await User.findOne({ 
+            email, 
+            verificationOTP: otp,
+            verificationExpires: { $gt: new Date() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: "Kode verifikasi tidak valid atau sudah kedaluwarsa" });
+        }
+
+        user.isEmailVerified = true;
+        user.verificationOTP = undefined;
+        user.verificationExpires = undefined;
+        user.status = "active";
+        await user.save();
+
+        // Auto login after verification
+        const token = signJwt({ id: user._id, role: user.role }, "7d");
+        setAuthCookie(res, token, 7 * 24 * 60 * 60 * 1000);
+
+        return res.json({
+            success: true,
+            message: "Email berhasil diverifikasi!",
+            user: sanitizeUser(user)
+        });
+    } catch (error) {
+        console.error("[VERIFY_EMAIL]", error);
+        return res.status(500).json({ success: false, message: "Kesalahan server" });
+    }
+};
+
+const resendVerification = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: "Email wajib diisi" });
+        }
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+        }
+
+        if (user.isEmailVerified) {
+            return res.status(400).json({ success: false, message: "Email ini sudah diverifikasi" });
+        }
+
+        // Rate limit: 60 seconds
+        const now = new Date();
+        if (user.lastResentAt && (now - user.lastResentAt) < 60000) {
+            const waitSeconds = Math.ceil((60000 - (now - user.lastResentAt)) / 1000);
+            return res.status(429).json({ success: false, message: `Harap tunggu ${waitSeconds} detik sebelum meminta kode baru.` });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+        user.verificationOTP = otp;
+        user.verificationExpires = otpExpires;
+        user.lastResentAt = now;
+        await user.save();
+
+        const emailResult = await require("../helpers/emailService").sendVerificationEmail(email, otp);
+
+        if (!emailResult.success) {
+            return res.status(500).json({ success: false, message: "Gagal mengirim email verifikasi" });
+        }
+
+        return res.json({
+            success: true,
+            message: "Kode verifikasi baru telah dikirim ke email Anda."
+        });
+    } catch (error) {
+        console.error("[RESEND_VERIFICATION]", error);
+        return res.status(500).json({ success: false, message: "Kesalahan server" });
+    }
+};
+
+/* =========================
+   PASSWORD RESET
+   ========================= */
+
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ success: false, message: "Email wajib diisi" });
+        }
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ success: false, message: "Email tidak ditemukan" });
+        }
+
+        // Rate limit 60s
+        const now = new Date();
+        if (user.lastResentAt && (now - user.lastResentAt) < 60000) {
+            return res.status(429).json({ success: false, message: "Harap tunggu 60 detik sebelum meminta reset baru." });
+        }
+
+        const rawToken = require("crypto").randomBytes(32).toString("hex");
+        const hashedToken = require("crypto").createHash("sha256").update(rawToken).digest("hex");
+        const tokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+        user.resetPasswordToken = hashedToken;
+        user.resetPasswordExpires = tokenExpires;
+        user.lastResentAt = now;
+        await user.save();
+
+        const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${rawToken}`;
+        const emailResult = await require("../helpers/emailService").sendPasswordResetEmail(email, resetUrl);
+        
+        if (!emailResult.success) {
+            return res.status(500).json({ success: false, message: "Gagal mengirim email reset password" });
+        }
+
+        return res.json({ success: true, message: "Link reset password telah dikirim ke email Anda." });
+    } catch (error) {
+        console.error("[FORGOT_PASSWORD]", error);
+        return res.status(500).json({ success: false, message: "Kesalahan server" });
+    }
+};
+
+const resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+        if (!token || !newPassword) {
+            return res.status(400).json({ success: false, message: "Token dan password baru wajib diisi" });
+        }
+
+        const hashedToken = require("crypto").createHash("sha256").update(token).digest("hex");
+
+        const user = await User.findOne({
+            resetPasswordToken: hashedToken,
+            resetPasswordExpires: { $gt: new Date() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: "Link reset tidak valid atau sudah kedaluwarsa" });
+        }
+
+        user.password = await bcrypt.hash(newPassword, 10);
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+
+        return res.json({ success: true, message: "Password berhasil diperbarui. Silakan login kembali." });
+    } catch (error) {
+        console.error("[RESET_PASSWORD]", error);
+        return res.status(500).json({ success: false, message: "Kesalahan server" });
+    }
+};
 
 module.exports = {
   googleSignIn,
@@ -251,4 +413,8 @@ module.exports = {
   getAuthenticated,
   guestLogin,
   logout,
+  verifyEmail,
+  resendVerification,
+  forgotPassword,
+  resetPassword,
 };

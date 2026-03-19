@@ -114,10 +114,22 @@ const updateAdmin = async (req, res) => {
       });
     }
 
+    const isSelf = id === req.user.id;
+
     if (name) user.name = name;
-    if (email) user.email = email;
-    if (password) {
+
+    // 🛡️ Admin cannot change their own email (must be via super admin or system)
+    if (email && !isSelf) {
+      user.email = email;
+    } else if (email && isSelf) {
+      return res.status(400).json({ success: false, message: "Email admin tidak dapat diubah secara mandiri." });
+    }
+
+    // 🛡️ Direct password change is disabled for self, must use forgot-password flow
+    if (password && !isSelf) {
       user.password = await bcrypt.hash(password, 10);
+    } else if (password && isSelf) {
+      return res.status(400).json({ success: false, message: "Gunakan fitur reset password via email untuk mengubah kata sandi." });
     }
 
     if (req.file) {
@@ -243,15 +255,21 @@ const inviteAdmin = async (req, res) => {
       anonymous_name: await generateAnonymousName(), // Temporary
     });
 
-    // In production, send email here. For now, return raw token.
+    const joinUrl = `${process.env.CLIENT_URL}/join-admin?token=${rawToken}`;
+    const emailResult = await require("../helpers/emailService").sendAdminInvitationEmail(email, role, joinUrl);
+
+    if (!emailResult.success) {
+        return res.status(201).json({
+            success: true,
+            message: "Undangan dibuat, tetapi gagal mengirim email.",
+            data: { invitationToken: rawToken, emailSent: false }
+        });
+    }
+
     res.status(201).json({
       success: true,
-      message: "Undangan admin berhasil dibuat",
-      data: {
-        email: user.email,
-        role: user.role,
-        invitationToken: rawToken,
-      },
+      message: "Undangan admin berhasil dikirim ke email " + email,
+      data: { invitationToken: rawToken, emailSent: true }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
