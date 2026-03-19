@@ -58,10 +58,32 @@ const userSchema = new mongoose.Schema(
     avatarUrl: {
       type: String,
     },
+    cloudinary_id: {
+      type: String,
+    },
 
     isGuest: {
       type: Boolean,
       default: true,
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationOTP: {
+      type: String,
+    },
+    verificationExpires: {
+      type: Date,
+    },
+    lastResentAt: {
+      type: Date,
+    },
+    resetPasswordToken: {
+      type: String,
+    },
+    resetPasswordExpires: {
+      type: Date,
     },
   },
   {

@@ -6,6 +6,11 @@ const {
   getAuthenticated,
   guestLogin,
   logout,
+  registerUser,
+  verifyEmail,
+  resendVerification,
+  forgotPassword,
+  resetPassword,
 } = require("../controllers/auth.controller");
 const {
   authMiddleware,
@@ -126,5 +131,122 @@ router.get("/me", getAuthenticated);
  *         description: Logout successful
  */
 router.post("/logout", logout);
+
+/**
+ * @swagger
+ * /api/auth/verify-email:
+ *   post:
+ *     summary: Verify user email with OTP code
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *               otp:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Email verified successfully, user logged in
+ *       400:
+ *         description: Invalid OTP or expired
+ *       500:
+ *         description: Server error
+ */
+router.post("/verify-email", verifyEmail);
+
+/**
+ * @swagger
+ * /api/auth/resend-verification:
+ *   post:
+ *     summary: Resend verification OTP code
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Verification code resent
+ *       400:
+ *         description: Email already verified or invalid
+ *       429:
+ *         description: Too many requests (cooldown active)
+ *       500:
+ *         description: Server error
+ */
+router.post("/resend-verification", resendVerification);
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Request a password reset OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Reset code sent successfully
+ *       404:
+ *         description: Email not found
+ *       429:
+ *         description: Cooldown active
+ */
+router.post("/forgot-password", forgotPassword);
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Reset password using OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *               - newPassword
+ *             properties:
+ *               email:
+ *                 type: string
+ *               otp:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid OTP or expired
+ */
+router.post("/reset-password", resetPassword);
 
 module.exports = router;

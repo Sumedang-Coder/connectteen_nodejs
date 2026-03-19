@@ -14,6 +14,7 @@ const {
   validateInvite,
   joinAdmin
 } = require("../controllers/admin.controller");
+const upload = require("../helpers/cloudinaryConfig");
 
 const router = express.Router();
 
@@ -39,7 +40,7 @@ const router = express.Router();
  *       403:
  *         description: Access denied
  */
-router.get("/admin", authMiddleware, superAdminOnly, getAdmin);
+router.get("/admin", authMiddleware, anyAdmin, getAdmin);
 
 /**
  * @swagger
@@ -109,7 +110,7 @@ router.post("/admin", authMiddleware, superAdminOnly, registerAdminOnly);
  *       200:
  *         description: Admin updated successfully
  */
-router.put("/admin/:id", authMiddleware, anyAdmin, updateAdmin);
+router.put("/admin/:id", authMiddleware, anyAdmin, upload.single("image"), updateAdmin);
 
 /**
  * @swagger
