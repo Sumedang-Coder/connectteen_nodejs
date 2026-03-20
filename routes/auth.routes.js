@@ -11,6 +11,7 @@ const {
   resendVerification,
   forgotPassword,
   resetPassword,
+  updateMe,
 } = require("../controllers/auth.controller");
 const {
   authMiddleware,
@@ -119,6 +120,33 @@ router.post("/guest/login", guestLogin);
  *         description: Not authenticated or token invalid
  */
 router.get("/me", getAuthenticated);
+
+/**
+ * @swagger
+ * /api/auth/me:
+ *   put:
+ *     summary: Update currently authenticated user profile
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               no_hp:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: User not found
+ */
+router.put("/me", authMiddleware, updateMe);
 
 /**
  * @swagger

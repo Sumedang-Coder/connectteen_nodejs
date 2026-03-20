@@ -1,5 +1,7 @@
 const { sanitizeEvent, sanitizeEvents } = require("../helpers/utils");
 const Event = require("../models/Event");
+const EventRegistrant = require("../models/EventRegistrant");
+const crypto = require("crypto");
 const cloudinary = require("cloudinary").v2;
 
 /**
@@ -60,6 +62,7 @@ exports.createEvent = async (req, res) => {
 
 /**
  * GET ALL EVENTS
+ * Now also returns attendance_token for registered users
  */
 exports.getEvents = async (req, res) => {
   try {
@@ -85,10 +88,54 @@ exports.getEvents = async (req, res) => {
     const currentPage = parseInt(page);
     const hasNextPage = currentPage < totalPages;
 
+    // Sanitize events
+    const sanitized = sanitizeEvents(events, userId);
+
+    // If user is logged in, attach their attendance tokens and attended counts
+    if (userId) {
+      const eventIds = events.map(e => e._id);
+
+      // Get user's registrations for these events
+      const userRegistrations = await EventRegistrant.find({
+        event: { $in: eventIds },
+        user: userId,
+      }).select("event attendance_token is_attended");
+
+      const regMap = {};
+      userRegistrations.forEach(r => {
+        regMap[r.event.toString()] = {
+          attendance_token: r.attendance_token,
+          is_attended: r.is_attended,
+        };
+      });
+
+      // Attach to sanitized data
+      sanitized.forEach(ev => {
+        const reg = regMap[ev.id.toString()];
+        if (reg) {
+          ev.attendance_token = reg.attendance_token;
+          ev.is_attended = reg.is_attended;
+        }
+      });
+    }
+
+    // Get attended counts for all events on this page
+    const eventIds = events.map(e => e._id);
+    const attendedCounts = await EventRegistrant.aggregate([
+      { $match: { event: { $in: eventIds } } },
+      { $group: { _id: "$event", attended: { $sum: { $cond: ["$is_attended", 1, 0] } } } }
+    ]);
+    const attendedMap = {};
+    attendedCounts.forEach(a => { attendedMap[a._id.toString()] = a.attended; });
+
+    sanitized.forEach(ev => {
+      ev.attended_count = attendedMap[ev.id.toString()] || 0;
+    });
+
     res.json({
       success: true,
       message: "Events retrieved successfully",
-      data: sanitizeEvents(events, userId),
+      data: sanitized,
       pagination: {
         totalEvents,
         totalPages,
@@ -124,6 +171,7 @@ exports.deleteEvent = async (req, res) => {
     }
 
     await event.deleteOne();
+    await EventRegistrant.deleteMany({ event: req.params.id });
 
     res.status(200).json({
       success: true,
@@ -151,7 +199,6 @@ exports.getEventById = async (req, res) => {
       });
     }
 
-    // Visibility check for non-admins
     const ADMIN_ROLES = ["super_admin", "content_editor", "viewer"];
     if (event.visibility === "private" && !ADMIN_ROLES.includes(userRole)) {
       return res.status(403).json({
@@ -160,9 +207,27 @@ exports.getEventById = async (req, res) => {
       });
     }
 
+    const sanitized = sanitizeEvent(event, userId);
+
+    // Provide attendance token if user is registered
+    if (userId && sanitized.isRegistered) {
+      const registrant = await EventRegistrant.findOne({ event: event._id, user: userId });
+      if (registrant) {
+        sanitized.attendance_token = registrant.attendance_token;
+        sanitized.is_attended = registrant.is_attended;
+      }
+    }
+
+    // Get attended count
+    const attendedCount = await EventRegistrant.countDocuments({
+      event: event._id,
+      is_attended: true,
+    });
+    sanitized.attended_count = attendedCount;
+
     res.json({
       success: true,
-      data: sanitizeEvent(event, userId),
+      data: sanitized,
     });
   } catch (error) {
     console.error("[GET_EVENT_BY_ID]", error);
@@ -175,33 +240,64 @@ exports.getEventById = async (req, res) => {
 
 /**
  * GET REGISTRANTS EVENT (admin)
+ * Fixed: count from EventRegistrant, search support, totalAttended
  */
 exports.getRegistrants = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, search } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    const eventId = req.params.id;
 
-    // Get total count first
-    const eventCount = await Event.findById(req.params.id).select("users");
-    if (!eventCount) {
+    // Verify event exists
+    const event = await Event.findById(eventId).select("event_title quota");
+    if (!event) {
       return res.status(404).json({
         success: false,
         message: "Event tidak ditemukan",
       });
     }
 
-    const totalRegistrants = eventCount.users.length;
+    // Build query — count from EventRegistrant as the single source of truth
+    let registrantsQuery = EventRegistrant.find({ event: eventId });
+    let countQuery = { event: eventId };
+
+    // If search, we need to find matching user IDs first
+    if (search && search.trim()) {
+      const User = require("../models/User");
+      const matchingUsers = await User.find({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+        ],
+      }).select("_id");
+
+      const userIds = matchingUsers.map(u => u._id);
+      registrantsQuery = registrantsQuery.where("user").in(userIds);
+      countQuery.user = { $in: userIds };
+    }
+
+    const totalRegistrants = await EventRegistrant.countDocuments(countQuery);
+    const totalAttended = await EventRegistrant.countDocuments({ event: eventId, is_attended: true });
     const totalPages = Math.ceil(totalRegistrants / parseInt(limit));
 
-    // Populate with pagination
-    const event = await Event.findById(req.params.id).populate({
-      path: "users",
-      select: "name no_hp email avatarUrl",
-      options: {
-        skip: skip,
-        limit: parseInt(limit),
-      },
-    });
+    const registrants = await registrantsQuery
+      .populate("user", "name no_hp email avatarUrl")
+      .sort("-createdAt")
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const data = registrants.map((r) => ({
+      registrant_id: r._id,
+      id: r.user?._id || null,
+      name: r.user?.name || "Unknown",
+      email: r.user?.email || "Unknown",
+      no_hp: r.user?.no_hp || "-",
+      avatarUrl: r.user?.avatarUrl || null,
+      is_attended: r.is_attended,
+      attended_at: r.attended_at,
+      attendance_token: r.attendance_token,
+      registered_at: r.createdAt,
+    }));
 
     const currentPage = parseInt(page);
     const hasNextPage = currentPage < totalPages;
@@ -209,9 +305,11 @@ exports.getRegistrants = async (req, res) => {
     res.json({
       success: true,
       message: "Registrants retrieved successfully",
-      data: event.users,
+      data: data,
       pagination: {
         totalRegistrants,
+        totalAttended,
+        totalAbsent: totalRegistrants - totalAttended,
         totalPages,
         currentPage,
         limit: parseInt(limit),
@@ -230,6 +328,7 @@ exports.getRegistrants = async (req, res) => {
 
 /**
  * REGISTER EVENT (user)
+ * Fixed: prevent unregister if already attended
  */
 exports.registerEvent = async (req, res) => {
   try {
@@ -246,13 +345,24 @@ exports.registerEvent = async (req, res) => {
 
     const userIndex = event.users.indexOf(userId);
     let message = "";
+    let attendanceToken = null;
 
     if (userIndex !== -1) {
-      // Allow unregistration regardless of status
+      // === UNREGISTRATION ===
+      // Check if already attended — cannot unregister
+      const existingRegistrant = await EventRegistrant.findOne({ event: eventId, user: userId });
+      if (existingRegistrant && existingRegistrant.is_attended) {
+        return res.status(400).json({
+          success: false,
+          message: "Tidak dapat membatalkan pendaftaran karena Anda sudah tercatat hadir di event ini.",
+        });
+      }
+
       event.users.splice(userIndex, 1);
+      await EventRegistrant.findOneAndDelete({ event: eventId, user: userId });
       message = "Pendaftaran dibatalkan";
     } else {
-      // Check if event is closed or full
+      // === REGISTRATION ===
       if (event.status === "closed") {
         return res.status(400).json({ success: false, message: "Pendaftaran event ini sudah ditutup" });
       }
@@ -261,16 +371,50 @@ exports.registerEvent = async (req, res) => {
         return res.status(400).json({ success: false, message: "Kuota event sudah penuh" });
       }
 
+      // Check for existing registrant (race condition guard)
+      const existing = await EventRegistrant.findOne({ event: eventId, user: userId });
+      if (existing) {
+        // Already registered in EventRegistrant but not in Event.users — fix sync
+        if (!event.users.includes(userId)) {
+          event.users.push(userId);
+          await event.save();
+        }
+        return res.json({
+          success: true,
+          message: "Anda sudah terdaftar di event ini",
+          data: {
+            ...sanitizeEvent(event, userId),
+            attendance_token: existing.attendance_token,
+          },
+        });
+      }
+
+      // Generate unique token
+      const token = crypto.randomBytes(16).toString("hex");
+      attendanceToken = token;
+
+      const registrant = new EventRegistrant({
+        event: eventId,
+        user: userId,
+        attendance_token: token,
+      });
+
+      await registrant.save();
       event.users.push(userId);
       message = "Berhasil mendaftar event";
     }
 
     await event.save();
 
+    const sanitized = sanitizeEvent(event, userId);
+    if (attendanceToken) {
+      sanitized.attendance_token = attendanceToken;
+    }
+
     res.json({
       success: true,
       message: message,
-      data: sanitizeEvent(event, userId)
+      data: sanitized,
     });
   } catch (error) {
     console.error("[TOGGLE_REGISTER_EVENT]", error);
@@ -278,6 +422,60 @@ exports.registerEvent = async (req, res) => {
       success: false,
       message: "Kesalahan server",
     });
+  }
+};
+
+/**
+ * VERIFY ATTENDANCE (admin)
+ */
+exports.verifyAttendance = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: "Attendance token is required" });
+    }
+
+    const registrant = await EventRegistrant.findOne({ attendance_token: token })
+      .populate("user", "name email avatarUrl")
+      .populate("event", "event_title");
+
+    if (!registrant) {
+      return res.status(404).json({ success: false, message: "Token tidak valid atau registran tidak ditemukan" });
+    }
+
+    if (registrant.is_attended) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "User sudah absen sebelumnya",
+        data: {
+          name: registrant.user?.name || "Unknown",
+          email: registrant.user?.email || "Unknown",
+          avatarUrl: registrant.user?.avatarUrl || null,
+          event: registrant.event?.event_title || "Unknown",
+          attended_at: registrant.attended_at,
+        }
+      });
+    }
+
+    registrant.is_attended = true;
+    registrant.attended_at = new Date();
+    await registrant.save();
+
+    res.json({
+      success: true,
+      message: "Absensi berhasil!",
+      data: {
+        name: registrant.user?.name || "Unknown",
+        email: registrant.user?.email || "Unknown",
+        avatarUrl: registrant.user?.avatarUrl || null,
+        event: registrant.event?.event_title || "Unknown",
+        attended_at: registrant.attended_at,
+      }
+    });
+  } catch (error) {
+    console.error("[VERIFY_ATTENDANCE]", error);
+    res.status(500).json({ success: false, message: "Kesalahan server" });
   }
 };
 
@@ -303,13 +501,6 @@ exports.updateEvent = async (req, res) => {
       status: req.body.status || event.status,
       visibility: req.body.visibility || event.visibility,
     };
-
-    if (req.body.date && (new Date(req.body.date) < new Date()) && (new Date(req.body.date).toISOString() !== event.date.toISOString())) {
-        // Allow it if it's already in the past but we are just updating other fields,
-        // but if they are changing the date, it must be future.
-        // Actually simpler: just warn but don't block if it was already past.
-        // For now, no explicit error for past date on update unless it's a new past date.
-    }
 
     if (req.file) {
       if (event.cloudinary_id) {
