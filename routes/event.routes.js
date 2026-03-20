@@ -185,6 +185,40 @@ router.put(
   eventController.updateEvent
 );
 
+/**
+ * @swagger
+ * /api/attendance/verify:
+ *   post:
+ *     summary: Verify attendee presence via QR/Token (admin)
+ *     tags: [Events]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Attendance verified successfully
+ *       400:
+ *         description: Already attended or missing token
+ *       404:
+ *         description: Invalid token
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  "/attendance/verify",
+  authMiddleware,
+  anyAdmin,
+  eventController.verifyAttendance
+);
+
 // public / user
 /**
  * @swagger

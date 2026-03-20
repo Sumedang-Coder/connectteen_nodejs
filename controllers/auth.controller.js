@@ -406,6 +406,43 @@ const resetPassword = async (req, res) => {
     }
 };
 
+const updateMe = async (req, res) => {
+  try {
+    const { name, no_hp } = req.body;
+    const userId = req.user.id;
+
+    if (name && name.trim().length < 3) {
+      return res.status(400).json({ success: false, message: "Nama minimal 3 karakter" });
+    }
+
+    if (no_hp) {
+      const phoneRegex = /^(?:\+62|62|0)8[1-9][0-9]{6,11}$/;
+      if (!phoneRegex.test(no_hp.trim().replace(/\s/g, ''))) {
+        return res.status(400).json({ success: false, message: "Format nomor WhatsApp tidak valid" });
+      }
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+    }
+
+    if (name) user.name = name.trim();
+    if (no_hp) user.no_hp = no_hp.trim();
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Profil berhasil diperbarui",
+      user: sanitizeUser(user),
+    });
+  } catch (error) {
+    console.error("[UPDATE_ME]", error);
+    return res.status(500).json({ success: false, message: "Kesalahan server" });
+  }
+};
+
 module.exports = {
   googleSignIn,
   googleSignInCallback,
@@ -417,4 +454,5 @@ module.exports = {
   resendVerification,
   forgotPassword,
   resetPassword,
+  updateMe,
 };
