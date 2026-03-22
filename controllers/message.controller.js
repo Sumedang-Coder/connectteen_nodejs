@@ -307,7 +307,7 @@ exports.deleteMessage = async (req, res) => {
     }
 
     // Permission check: Owner OR Admin (super_admin, content_editor)
-    const isOwner = message.user.toString() === req.user.id;
+    const isOwner = message.user && message.user.toString() === req.user.id.toString();
     const isAdmin = ["super_admin", "content_editor"].includes(req.user.role);
 
     if (!isOwner && !isAdmin) {

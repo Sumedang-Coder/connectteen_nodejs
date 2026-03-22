@@ -312,8 +312,10 @@ exports.addArticleComment = async (req, res) => {
 
     let commentName = name ? name.trim() : "Anonymous";
     let commentAvatar = null;
+    let commentUserId = null;
 
     if (req.user) {
+      commentUserId = req.user.id;
       const user = await User.findById(req.user.id);
       if (user) {
         commentName = user.name || user.anonymous_name || "User";
@@ -330,6 +332,7 @@ exports.addArticleComment = async (req, res) => {
     const newComment = await Comment.create({
       targetId: articleId,
       targetType: "Article",
+      userId: commentUserId,
       name: commentName,
       avatarUrl: commentAvatar,
       message: commentMessage,
