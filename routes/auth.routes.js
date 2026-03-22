@@ -1,4 +1,5 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const {
   googleSignIn,
   googleSignInCallback,
@@ -6,7 +7,6 @@ const {
   getAuthenticated,
   guestLogin,
   logout,
-  registerUser,
   verifyEmail,
   resendVerification,
   forgotPassword,
@@ -20,6 +20,30 @@ const {
 } = require("../middleware/auth");
 
 const router = express.Router();
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: { success: false, message: "Terlalu banyak percobaan login, silakan coba lagi setelah 15 menit." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const guestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: { success: false, message: "Terlalu banyak permintaan login tamu, silakan coba lagi nanti." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const passwordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  message: { success: false, message: "Terlalu banyak percobaan request password, silakan coba kembali setelah 15 menit." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /**
  * @swagger
@@ -91,7 +115,7 @@ router.get("/google/callback", optionalAuth, googleSignInCallback);
  *       403:
  *         description: Account suspended or not activated
  */
-router.post("/admin/login", loginAdmin);
+router.post("/admin/login", loginLimiter, loginAdmin);
 
 /**
  * @swagger
@@ -105,7 +129,7 @@ router.post("/admin/login", loginAdmin);
  *       500:
  *         description: Guest login failed
  */
-router.post("/guest/login", guestLogin);
+router.post("/guest/login", guestLimiter, guestLogin);
 
 /**
  * @swagger
@@ -244,7 +268,7 @@ router.post("/resend-verification", resendVerification);
  *       429:
  *         description: Cooldown active
  */
-router.post("/forgot-password", forgotPassword);
+router.post("/forgot-password", passwordLimiter, forgotPassword);
 
 /**
  * @swagger
@@ -275,6 +299,6 @@ router.post("/forgot-password", forgotPassword);
  *       400:
  *         description: Invalid OTP or expired
  */
-router.post("/reset-password", resetPassword);
+router.post("/reset-password", passwordLimiter, resetPassword);
 
 module.exports = router;

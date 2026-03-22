@@ -17,10 +17,10 @@ exports.addComment = async (req, res) => {
       }
     }
 
-    const commentMessage = message.trim();
-    if (!commentMessage) {
+    if (!message || typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({ success: false, message: "Pesan wajib diisi" });
     }
+    const commentMessage = message.trim();
 
     const newComment = await Comment.create({
       targetId: messageId,
@@ -70,10 +70,10 @@ exports.addReply = async (req, res) => {
       }
     }
 
-    const replyMessage = message.trim();
-    if (!replyMessage) {
+    if (!message || typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({ success: false, message: "Pesan balasan wajib diisi" });
     }
+    const replyMessage = message.trim();
 
     const comment = await Comment.findById(commentId);
     if (!comment) {

@@ -383,6 +383,10 @@ const resetPassword = async (req, res) => {
             return res.status(400).json({ success: false, message: "Token dan password baru wajib diisi" });
         }
 
+        if (newPassword.length < 8) {
+            return res.status(400).json({ success: false, message: "Password minimal 8 karakter" });
+        }
+
         const hashedToken = require("crypto").createHash("sha256").update(token).digest("hex");
 
         const user = await User.findOne({
