@@ -69,31 +69,49 @@ const sendPasswordResetEmail = async (email, resetUrl) => {
             subject: 'Reset Password Request - ConnectTeen',
             text: `We received a request to reset your ConnectTeen password. Click here to reset: ${resetUrl}`,
             html: `
-                <div style="font-family: 'Inter', system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #ffffff; color: #1e293b;">
-                    <div style="text-align: center; margin-bottom: 30px;">
-                        <h1 style="color: #2563eb; margin: 0; font-size: 28px; font-weight: 800;">ConnectTeen</h1>
-                    </div>
-                    <div style="background-color: #f8fafc; border-radius: 24px; padding: 40px; border: 1px solid #e2e8f0;">
-                        <h2 style="color: #0f172a; font-weight: 800; text-align: center; margin-top: 0;">Reset Your Password</h2>
-                        <p style="color: #475569; font-size: 16px; line-height: 1.6; text-align: center;">
-                            Kami menerima permintaan untuk mengatur ulang kata sandi akun administrator Anda. Klik tombol di bawah ini untuk melanjutkan:
-                        </p>
-                        <div style="text-align: center; margin: 40px 0;">
-                            <a href="${resetUrl}" style="background-color: #0f172a; color: #ffffff; padding: 20px 40px; border-radius: 16px; text-decoration: none; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2);">
-                                Atur Ulang Password
-                            </a>
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                        @media only screen and (max-width: 600px) {
+                            .container { padding: 20px 15px !important; }
+                            .content { padding: 30px 20px !important; border-radius: 16px !important; }
+                            .btn { padding: 16px 20px !important; width: 100% !important; box-sizing: border-box !important; font-size: 13px !important; }
+                            h1 { font-size: 24px !important; }
+                            h2 { font-size: 20px !important; }
+                            p { font-size: 14px !important; }
+                        }
+                    </style>
+                </head>
+                <body style="margin: 0; padding: 0; background-color: #ffffff;">
+                    <div class="container" style="font-family: 'Inter', system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #ffffff; color: #1e293b;">
+                        <div style="text-align: center; margin-bottom: 30px;">
+                            <h1 style="color: #2563eb; margin: 0; font-size: 28px; font-weight: 800;">ConnectTeen</h1>
                         </div>
-                        <p style="color: #64748b; font-size: 14px; text-align: center; margin-bottom: 0;">
-                            Link ini berlaku selama <strong>60 menit</strong>. <br>
-                            Jika Anda tidak merasa melakukan permintaan ini, abaikan email ini.
-                        </p>
+                        <div class="content" style="background-color: #f8fafc; border-radius: 24px; padding: 40px; border: 1px solid #e2e8f0;">
+                            <h2 style="color: #0f172a; font-weight: 800; text-align: center; margin-top: 0;">Reset Your Password</h2>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6; text-align: center;">
+                                Kami menerima permintaan untuk mengatur ulang kata sandi akun administrator Anda. Klik tombol di bawah ini untuk melanjutkan:
+                            </p>
+                            <div style="text-align: center; margin: 40px 0;">
+                                <a href="${resetUrl}" class="btn" style="background-color: #0f172a; color: #ffffff; padding: 20px 40px; border-radius: 16px; text-decoration: none; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2);">
+                                    Atur Ulang Password
+                                </a>
+                            </div>
+                            <p style="color: #64748b; font-size: 14px; text-align: center; margin-bottom: 0;">
+                                Link ini berlaku selama <strong>60 menit</strong>. <br>
+                                Jika Anda tidak merasa melakukan permintaan ini, abaikan email ini.
+                            </p>
+                        </div>
+                        <div style="margin-top: 40px; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+                            <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+                                &copy; ${new Date().getFullYear()} ConnectTeen Platform. All rights reserved.
+                            </p>
+                        </div>
                     </div>
-                    <div style="margin-top: 40px; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px;">
-                        <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-                            &copy; ${new Date().getFullYear()} ConnectTeen Platform. All rights reserved.
-                        </p>
-                    </div>
-                </div>
+                </body>
+                </html>
             `,
         });
 
