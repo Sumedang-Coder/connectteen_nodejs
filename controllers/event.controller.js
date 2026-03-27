@@ -376,7 +376,7 @@ exports.registerEvent = async (req, res) => {
 
       // Check quota atomically via findOneAndUpdate
       const updatedEvent = await Event.findOneAndUpdate(
-        { 
+        {
           _id: eventId,
           $or: [
             { quota: 0 },
@@ -418,14 +418,9 @@ exports.registerEvent = async (req, res) => {
         }
         throw err;
       }
-      
+
       // Update local event object for response formatting
       Object.assign(event, updatedEvent);
-    }
-
-    const sanitized = sanitizeEvent(event, userId);
-    if (attendanceToken) {
-      sanitized.attendance_token = attendanceToken;
     }
 
     const sanitized = sanitizeEvent(event, userId);
@@ -467,8 +462,8 @@ exports.verifyAttendance = async (req, res) => {
     }
 
     if (registrant.is_attended) {
-      return res.status(400).json({ 
-        success: false, 
+      return res.status(400).json({
+        success: false,
         message: "User sudah absen sebelumnya",
         data: {
           name: registrant.user?.name || "Unknown",
