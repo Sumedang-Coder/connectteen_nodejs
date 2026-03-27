@@ -12,7 +12,8 @@ const {
   getStats,
   inviteAdmin,
   validateInvite,
-  joinAdmin
+  joinAdmin,
+  inviteRedirect
 } = require("../controllers/admin.controller");
 const upload = require("../helpers/cloudinaryConfig");
 
@@ -132,7 +133,23 @@ router.put("/admin/:id", authMiddleware, anyAdmin, upload.single("image"), updat
  */
 router.delete("/admin/:id", authMiddleware, superAdminOnly, deleteAdmin);
 
-// Invitation system
+/**
+ * @swagger
+ * /api/admin/invite-redirect:
+ *   get:
+ *     summary: Redirect to external browser for invitation
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       302:
+ *         description: Redirects to external browser
+ */
+router.get("/admin/invite-redirect", inviteRedirect);
+
 /**
  * @swagger
  * /api/admin/invite:

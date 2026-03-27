@@ -263,11 +263,11 @@ const inviteAdmin = async (req, res) => {
     const emailResult = await require("../helpers/emailService").sendAdminInvitationEmail(email, role, joinUrl);
 
     if (!emailResult.success) {
-        return res.status(201).json({
-            success: true,
-            message: "Undangan dibuat, tetapi gagal mengirim email.",
-            data: { invitationToken: rawToken, emailSent: false }
-        });
+      return res.status(201).json({
+        success: true,
+        message: "Undangan dibuat, tetapi gagal mengirim email.",
+        data: { invitationToken: rawToken, emailSent: false }
+      });
     }
 
     res.status(201).json({
@@ -348,6 +348,36 @@ const joinAdmin = async (req, res) => {
   }
 };
 
+const inviteRedirect = async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) return res.status(400).send("Token is required");
+
+    const userAgent = req.headers["user-agent"] || "";
+    const isAndroid = /Android/i.test(userAgent);
+
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
+    const destinationUrl = `${clientUrl}/join-admin?token=${token}`;
+
+    if (isAndroid) {
+      try {
+        const urlObj = new URL(clientUrl);
+        const host = urlObj.host;
+        const intentUrl = `intent://${host}/join-admin?token=${token}#Intent;scheme=https;package=com.android.chrome;end`;
+        return res.redirect(intentUrl);
+      } catch (e) {
+        // Fallback if clientUrl is not a valid URL
+        return res.redirect(destinationUrl);
+      }
+    }
+
+    res.redirect(destinationUrl);
+  } catch (error) {
+    console.error("[INVITE_REDIRECT_ERROR]", error);
+    res.status(500).send("Redirect failed");
+  }
+};
+
 module.exports = {
   getAdmin,
   registerAdminOnly,
@@ -356,6 +386,7 @@ module.exports = {
   getStats,
   inviteAdmin,
   validateInvite,
-  joinAdmin
+  joinAdmin,
+  inviteRedirect
 };
 
