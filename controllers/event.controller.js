@@ -68,6 +68,7 @@ exports.getEvents = async (req, res) => {
   try {
     const { search, page = 1, limit = 10, sort = "-createdAt" } = req.query;
     const userId = req.user ? req.user.id : null;
+    const userRole = req.user ? req.user.role : "guest";
 
     const query = {};
     if (search) {
@@ -75,6 +76,11 @@ exports.getEvents = async (req, res) => {
         { event_title: { $regex: search, $options: "i" } },
         { location: { $regex: search, $options: "i" } },
       ];
+    }
+
+    const ADMIN_ROLES = ["super_admin", "content_editor", "viewer"];
+    if (!ADMIN_ROLES.includes(userRole)) {
+      query.visibility = "public";
     }
 
     const totalEvents = await Event.countDocuments(query);
@@ -361,50 +367,66 @@ exports.registerEvent = async (req, res) => {
       event.users.splice(userIndex, 1);
       await EventRegistrant.findOneAndDelete({ event: eventId, user: userId });
       message = "Pendaftaran dibatalkan";
+      await event.save();
     } else {
       // === REGISTRATION ===
       if (event.status === "closed") {
         return res.status(400).json({ success: false, message: "Pendaftaran event ini sudah ditutup" });
       }
 
-      if (event.quota > 0 && event.users.length >= event.quota) {
+      // Check quota atomically via findOneAndUpdate
+      const updatedEvent = await Event.findOneAndUpdate(
+        { 
+          _id: eventId,
+          $or: [
+            { quota: 0 },
+            { $expr: { $lt: [{ $size: "$users" }, "$quota"] } }
+          ]
+        },
+        { $addToSet: { users: userId } },
+        { new: true }
+      );
+
+      if (!updatedEvent) {
         return res.status(400).json({ success: false, message: "Kuota event sudah penuh" });
       }
 
-      // Check for existing registrant (race condition guard)
-      const existing = await EventRegistrant.findOne({ event: eventId, user: userId });
-      if (existing) {
-        // Already registered in EventRegistrant but not in Event.users — fix sync
-        if (!event.users.includes(userId)) {
-          event.users.push(userId);
-          await event.save();
-        }
-        return res.json({
-          success: true,
-          message: "Anda sudah terdaftar di event ini",
-          data: {
-            ...sanitizeEvent(event, userId),
-            attendance_token: existing.attendance_token,
-          },
+      try {
+        const token = crypto.randomBytes(16).toString("hex");
+        attendanceToken = token;
+
+        const registrant = new EventRegistrant({
+          event: eventId,
+          user: userId,
+          attendance_token: token,
         });
+
+        await registrant.save();
+        message = "Berhasil mendaftar event";
+      } catch (err) {
+        // Handle race condition where EventRegistrant was already created
+        if (err.code === 11000) {
+          const existing = await EventRegistrant.findOne({ event: eventId, user: userId });
+          return res.json({
+            success: true,
+            message: "Anda sudah terdaftar di event ini",
+            data: {
+              ...sanitizeEvent(updatedEvent, userId),
+              attendance_token: existing ? existing.attendance_token : null,
+            },
+          });
+        }
+        throw err;
       }
-
-      // Generate unique token
-      const token = crypto.randomBytes(16).toString("hex");
-      attendanceToken = token;
-
-      const registrant = new EventRegistrant({
-        event: eventId,
-        user: userId,
-        attendance_token: token,
-      });
-
-      await registrant.save();
-      event.users.push(userId);
-      message = "Berhasil mendaftar event";
+      
+      // Update local event object for response formatting
+      Object.assign(event, updatedEvent);
     }
 
-    await event.save();
+    const sanitized = sanitizeEvent(event, userId);
+    if (attendanceToken) {
+      sanitized.attendance_token = attendanceToken;
+    }
 
     const sanitized = sanitizeEvent(event, userId);
     if (attendanceToken) {

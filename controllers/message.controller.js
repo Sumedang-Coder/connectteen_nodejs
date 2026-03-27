@@ -173,8 +173,11 @@ exports.getOneMessage = async (req, res) => {
 
     const query = { _id: id };
     if (!isAdmin) {
-      // Non-admins can only see public messages
-      query.recipient_name = { $nin: [/admin/i] };
+      // Non-admins can selectively see public messages or messages they created themselves
+      query.$or = [
+        { recipient_name: { $nin: [/admin/i] }, is_admin_only: false },
+        { user: req.user ? req.user.id : null }
+      ];
     }
 
     const message = await Message.findOne(query).populate("user", "name anonymous_name");
@@ -304,7 +307,7 @@ exports.deleteMessage = async (req, res) => {
     }
 
     // Permission check: Owner OR Admin (super_admin, content_editor)
-    const isOwner = message.user.toString() === req.user.id;
+    const isOwner = message.user && message.user.toString() === req.user.id.toString();
     const isAdmin = ["super_admin", "content_editor"].includes(req.user.role);
 
     if (!isOwner && !isAdmin) {

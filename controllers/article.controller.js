@@ -125,6 +125,13 @@ exports.updateArticle = async (req, res) => {
     let article = await Article.findById(req.params.id);
     if (!article) return res.status(404).json({ success: false, message: "Article not found" });
 
+    if (req.body.title !== undefined && !req.body.title.trim()) {
+      return res.status(400).json({ success: false, message: "Judul artikel tidak boleh kosong" });
+    }
+    if (req.body.description !== undefined && !req.body.description.trim() && req.body.description !== "<p></p>") {
+      return res.status(400).json({ success: false, message: "Konten artikel tidak boleh kosong" });
+    }
+
     const title = req.body.title?.trim() || article.title;
     const rawDescription = req.body.description || article.description;
 
@@ -305,8 +312,10 @@ exports.addArticleComment = async (req, res) => {
 
     let commentName = name ? name.trim() : "Anonymous";
     let commentAvatar = null;
+    let commentUserId = null;
 
     if (req.user) {
+      commentUserId = req.user.id;
       const user = await User.findById(req.user.id);
       if (user) {
         commentName = user.name || user.anonymous_name || "User";
@@ -323,6 +332,7 @@ exports.addArticleComment = async (req, res) => {
     const newComment = await Comment.create({
       targetId: articleId,
       targetType: "Article",
+      userId: commentUserId,
       name: commentName,
       avatarUrl: commentAvatar,
       message: commentMessage,

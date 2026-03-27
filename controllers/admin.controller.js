@@ -116,6 +116,10 @@ const updateAdmin = async (req, res) => {
 
     const isSelf = id === req.user.id;
 
+    if (req.user.role === "viewer" && !isSelf) {
+      return res.status(403).json({ success: false, message: "Viewer hanya dapat mengedit profilnya sendiri" });
+    }
+
     if (name) user.name = name;
 
     // 🛡️ Admin cannot change their own email (must be via super admin or system)
@@ -308,6 +312,10 @@ const joinAdmin = async (req, res) => {
 
     if (!token || !name || !password) {
       return res.status(400).json({ success: false, message: "Data tidak lengkap" });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: "Password minimal 8 karakter" });
     }
 
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");

@@ -124,8 +124,6 @@ router.get("/messages/:id", optionalAuth, getOneMessage);
  */
 router.delete("/messages/:id", authMiddleware, deleteMessage);
 
-const { addComment, getComments, addReply } = require("../controllers/comment.controller");
-
 // ... existing routes ...
 
 /**
@@ -136,32 +134,5 @@ const { addComment, getComments, addReply } = require("../controllers/comment.co
  *     tags: [Messages]
  */
 router.post("/messages/:id/react", authMiddleware, addReaction);
-
-/**
- * @swagger
- * /api/messages/{id}/comments:
- *   post:
- *     summary: Add a comment to a message
- *     tags: [Messages]
- */
-router.post("/messages/:id/comments", authMiddleware, addComment);
-
-/**
- * @swagger
- * /api/messages/{id}/comments:
- *   get:
- *     summary: Get all comments for a message
- *     tags: [Messages]
- */
-router.get("/messages/:id/comments", getComments);
-
-/**
- * @swagger
- * /api/comments/{commentId}/reply:
- *   post:
- *     summary: Add a reply to a comment
- *     tags: [Messages]
- */
-router.post("/comments/:commentId/reply", authMiddleware, addReply);
 
 module.exports = router;
