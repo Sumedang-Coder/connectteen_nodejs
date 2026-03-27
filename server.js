@@ -13,6 +13,7 @@ const messageRouter = require("./routes/message.routes");
 const articleRouter = require("./routes/article.routes");
 const eventRouter = require("./routes/event.routes");
 const adminRouter = require("./routes/admin.routes");
+const commentRouter = require("./routes/comment.routes");
 const User = require("./models/User");
 const { swaggerUi, specs, swaggerOptions } = require("./config/swagger");
 
@@ -127,6 +128,7 @@ app.use("/api", messageRouter);
 app.use("/api", articleRouter);
 app.use("/api", eventRouter);
 app.use("/api", adminRouter);
+app.use("/api", commentRouter);
 
 // Global Error Handler
 const errorHandler = require("./middleware/error.middleware");

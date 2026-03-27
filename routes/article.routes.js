@@ -196,7 +196,5 @@ router.delete(
 );
 
 router.post("/articles/:id/react", authMiddleware, articleController.addArticleReaction);
-router.get("/articles/:id/comments", articleController.getArticleComments);
-router.post("/articles/:id/comments", authMiddleware, articleController.addArticleComment);
 
 module.exports = router;

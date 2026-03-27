@@ -124,8 +124,6 @@ router.get("/messages/:id", optionalAuth, getOneMessage);
  */
 router.delete("/messages/:id", authMiddleware, deleteMessage);
 
-const { addComment, getComments, addReply, deleteComment, deleteReply } = require("../controllers/comment.controller");
-
 // ... existing routes ...
 
 /**
@@ -136,50 +134,5 @@ const { addComment, getComments, addReply, deleteComment, deleteReply } = requir
  *     tags: [Messages]
  */
 router.post("/messages/:id/react", authMiddleware, addReaction);
-
-/**
- * @swagger
- * /api/messages/{id}/comments:
- *   post:
- *     summary: Add a comment to a message
- *     tags: [Messages]
- */
-router.post("/messages/:id/comments", authMiddleware, addComment);
-
-/**
- * @swagger
- * /api/messages/{id}/comments:
- *   get:
- *     summary: Get all comments for a message
- *     tags: [Messages]
- */
-router.get("/messages/:id/comments", getComments);
-
-/**
- * @swagger
- * /api/comments/{commentId}/reply:
- *   post:
- *     summary: Add a reply to a comment
- *     tags: [Messages]
- */
-router.post("/comments/:commentId/reply", authMiddleware, addReply);
-
-/**
- * @swagger
- * /api/comments/{commentId}:
- *   delete:
- *     summary: Delete a comment
- *     tags: [Messages, Articles]
- */
-router.delete("/comments/:commentId", authMiddleware, deleteComment);
-
-/**
- * @swagger
- * /api/comments/{commentId}/reply/{replyId}:
- *   delete:
- *     summary: Delete a reply
- *     tags: [Messages, Articles]
- */
-router.delete("/comments/:commentId/reply/:replyId", authMiddleware, deleteReply);
 
 module.exports = router;
