@@ -428,6 +428,11 @@ exports.registerEvent = async (req, res) => {
       sanitized.attendance_token = attendanceToken;
     }
 
+    const sanitized = sanitizeEvent(event, userId);
+    if (attendanceToken) {
+      sanitized.attendance_token = attendanceToken;
+    }
+
     res.json({
       success: true,
       message: message,
