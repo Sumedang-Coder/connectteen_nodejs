@@ -407,7 +407,7 @@ const resetPassword = async (req, res) => {
 
     return res.json({ success: true, message: "Password berhasil diperbarui. Silakan login kembali." });
   } catch (error) {
-    console.error("[RESET_PASSWORD]", error);
+    console.errors("[RESET_PASSWORD]", error);
     return res.status(500).json({ success: false, message: "Kesalahan server" });
   }
 };
