@@ -66,6 +66,7 @@ const sendPasswordResetEmail = async (email, resetUrl) => {
         const { data, error } = await resend.emails.send({
             from: fromEmail,
             to: [email],
+            reply_to: fromEmail.match(/<(.+)>/)?.[1] || fromEmail,
             subject: 'Reset Password Request - ConnectTeen',
             text: `We received a request to reset your ConnectTeen password. Click here to reset: ${resetUrl}`,
             html: `
@@ -136,6 +137,7 @@ const sendAdminInvitationEmail = async (email, role, joinUrl) => {
         const { data, error } = await resend.emails.send({
             from: fromEmail,
             to: [email],
+            reply_to: fromEmail.match(/<(.+)>/)?.[1] || fromEmail,
             subject: 'Invitation to Join ConnectTeen Admin',
             text: `You have been invited to join ConnectTeen as a ${role}. Accept here: ${joinUrl}`,
             html: `

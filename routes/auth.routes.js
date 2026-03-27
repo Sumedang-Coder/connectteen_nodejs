@@ -23,7 +23,7 @@ const router = express.Router();
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 30,
   message: { success: false, message: "Terlalu banyak percobaan login, silakan coba lagi setelah 15 menit." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -31,7 +31,7 @@ const loginLimiter = rateLimit({
 
 const guestLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
+  max: 30,
   message: { success: false, message: "Terlalu banyak permintaan login tamu, silakan coba lagi nanti." },
   standardHeaders: true,
   legacyHeaders: false,
