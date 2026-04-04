@@ -9,7 +9,7 @@ const cloudinary = require("cloudinary").v2;
  */
 exports.createEvent = async (req, res) => {
   try {
-    const { event_title, description, location, date, quota, visibility } = req.body;
+    const { event_title, description, location, date, time, quota, visibility, is_online, link } = req.body;
 
     if (!event_title || !event_title.trim()) {
       return res.status(400).json({ success: false, message: "Judul event wajib diisi" });
@@ -26,6 +26,9 @@ exports.createEvent = async (req, res) => {
     if (new Date(date) < new Date()) {
       return res.status(400).json({ success: false, message: "Tanggal event tidak boleh di masa lalu" });
     }
+    if (!time || !time.trim()) {
+      return res.status(400).json({ success: false, message: "Jam event wajib diisi" });
+    }
 
     const quotaNum = parseInt(quota) || 0;
     if (quotaNum < 0) {
@@ -41,8 +44,11 @@ exports.createEvent = async (req, res) => {
       description: description.trim(),
       location: location.trim(),
       date,
+      time: time.trim(),
       quota: quotaNum,
       visibility: visibility || "public",
+      is_online: is_online === "true" || is_online === true,
+      link: link || "",
       image_url: req.file.path,
       cloudinary_id: req.file.filename,
     });
@@ -514,9 +520,12 @@ exports.updateEvent = async (req, res) => {
       description: req.body.description?.trim() || event.description,
       location: req.body.location?.trim() || event.location,
       date: req.body.date || event.date,
+      time: req.body.time || event.time,
       quota: quotaNum,
       status: req.body.status || event.status,
       visibility: req.body.visibility || event.visibility,
+      is_online: req.body.is_online !== undefined ? (req.body.is_online === "true" || req.body.is_online === true) : event.is_online,
+      link: req.body.link !== undefined ? req.body.link : event.link,
     };
 
     if (req.file) {

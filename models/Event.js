@@ -11,6 +11,10 @@ const eventSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    time: {
+      type: String,
+      required: true,
+    },
     location: {
       type: String,
       required: true,
@@ -18,6 +22,14 @@ const eventSchema = new mongoose.Schema(
     description: {
       type: String,
       required: true,
+    },
+    is_online: {
+      type: Boolean,
+      default: false,
+    },
+    link: {
+      type: String,
+      default: "",
     },
     quota: {
       type: Number,

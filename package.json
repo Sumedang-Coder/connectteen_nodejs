@@ -7,7 +7,9 @@
     "dev": "nodemon server.js",
     "db:reset": "node scripts/resetDb.js",
     "db:seed": "node seeders/adminSeeder.js",
-    "db:fresh": "npm run db:reset && npm run db:seed"
+    "db:seed:full": "node scripts/seedFullDatabase.js",
+    "db:fresh": "npm run db:reset && npm run db:seed",
+    "db:fresh:full": "npm run db:reset && npm run db:seed && npm run db:seed:full"
   },
   "dependencies": {
     "axios": "^1.13.2",
