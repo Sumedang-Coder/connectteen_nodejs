@@ -15,6 +15,9 @@ const articleSchema = new mongoose.Schema(
       required: true,
       maxlength: 200,
     },
+    subtitle: {
+      type: String,
+    },
     description: {
       type: String,
       required: true,
@@ -26,6 +29,14 @@ const articleSchema = new mongoose.Schema(
       wow: { type: Number, default: 0 },
       sad: { type: Number, default: 0 },
     },
+    polls: [{
+      question: { type: String, required: true },
+      options: [{
+        text: { type: String, required: true },
+        votes: { type: Number, default: 0 }
+      }],
+      voters: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+    }],
   },
   { timestamps: true }
 );

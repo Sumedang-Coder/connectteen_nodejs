@@ -48,9 +48,11 @@ const sanitizeMessages = (messages) =>
 const sanitizeArticle = (article) => ({
   id: article._id.toString(),
   title: article.title,
+  subtitle: article.subtitle || "",
   description: article.description,
   image_url: article.image_url,
   reactions: article.reactions || { heart: 0, laugh: 0, like: 0, wow: 0, sad: 0 },
+  polls: article.polls || [],
   created_at: article.createdAt,
   updated_at: article.updatedAt,
 });
@@ -59,6 +61,7 @@ const sanitizeArticles = (articles) =>
   articles.map((article) => ({
     id: article._id.toString(),
     title: article.title,
+    subtitle: article.subtitle || "",
     description: article.description,
     image_url: article.image_url,
     reactions: article.reactions || { heart: 0, laugh: 0, like: 0, wow: 0, sad: 0 },
@@ -72,6 +75,9 @@ const sanitizeEvent = (event, currentUserId) => ({
   description: event.description,
   date: event.date,
   location: event.location,
+  is_online: event.is_online || false,
+  link: event.link || "",
+  time: event.time || "",
   image_url: event.image_url,
   quota: event.quota || 0,
   status: (event.status === "open" && event.quota > 0 && event.users && event.users.length >= event.quota)
@@ -82,6 +88,9 @@ const sanitizeEvent = (event, currentUserId) => ({
   isRegistered: currentUserId
     ? event.users.some(id => id.toString() === currentUserId.toString())
     : false,
+  attendance_token: currentUserId
+    ? event.attendance_tokens?.find(at => at.userId.toString() === currentUserId.toString())?.token
+    : null,
   created_at: event.createdAt,
 });
 

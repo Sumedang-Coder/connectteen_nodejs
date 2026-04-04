@@ -11,15 +11,11 @@ exports.sendMessage = async (req, res) => {
 
     if (
       !recipient_name ||
-      !message ||
-      !song_id ||
-      !song_image ||
-      !song_artist ||
-      !song_name
+      !message
     ) {
       return res.status(400).json({
         success: false,
-        message: "Semua field wajib diisi",
+        message: "Nama penerima dan pesan wajib diisi",
       });
     }
 
@@ -173,9 +169,8 @@ exports.getOneMessage = async (req, res) => {
 
     const query = { _id: id };
     if (!isAdmin) {
-      // Non-admins can selectively see public messages or messages they created themselves
       query.$or = [
-        { recipient_name: { $nin: [/admin/i] }, is_admin_only: false },
+        { is_admin_only: { $ne: true } },
         { user: req.user ? req.user.id : null }
       ];
     }

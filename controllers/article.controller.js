@@ -10,7 +10,7 @@ const sanitizeHtml = require('sanitize-html');
 // CREATE artikel
 exports.createArticle = async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, subtitle, description, polls } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ success: false, message: "Judul wajib diisi" });
@@ -32,11 +32,22 @@ exports.createArticle = async (req, res) => {
       allowedAttributes: { 'img': ['src', 'alt'] }
     });
 
+    let parsedPolls = [];
+    if (polls) {
+      try {
+        parsedPolls = typeof polls === 'string' ? JSON.parse(polls) : polls;
+      } catch (err) {
+        console.error("Polls parsing error", err);
+      }
+    }
+
     const article = new Article({
       image_url: req.file.path,
       cloudinary_id: req.file.filename,
       title: title.trim(),
+      subtitle: subtitle ? subtitle.trim() : "",
       description: cleanDescription,
+      polls: parsedPolls
     });
 
     await article.save();
@@ -133,6 +144,7 @@ exports.updateArticle = async (req, res) => {
     }
 
     const title = req.body.title?.trim() || article.title;
+    const subtitle = req.body.subtitle !== undefined ? req.body.subtitle.trim() : article.subtitle;
     const rawDescription = req.body.description || article.description;
 
     // Sanitize description if it's changing
@@ -146,8 +158,18 @@ exports.updateArticle = async (req, res) => {
 
     let data = {
       title,
+      subtitle,
       description: cleanDescription,
     };
+    
+    if (req.body.polls) {
+      try {
+        const parsedPolls = typeof req.body.polls === 'string' ? JSON.parse(req.body.polls) : req.body.polls;
+        data.polls = parsedPolls;
+      } catch (err) {
+        console.error("Polls parsing error", err);
+      }
+    }
 
     if (req.file) {
       // Safe Cloudinary delete
@@ -342,6 +364,40 @@ exports.addArticleComment = async (req, res) => {
       success: true,
       data: newComment,
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.voteArticlePoll = async (req, res) => {
+  try {
+    const { id: articleId, pollId } = req.params;
+    const { optionId } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Harap login untuk vote" });
+    }
+
+    const article = await Article.findById(articleId);
+    if (!article) return res.status(404).json({ success: false, message: "Artikel tidak ditemukan" });
+
+    const poll = article.polls.id(pollId);
+    if (!poll) return res.status(404).json({ success: false, message: "Poll tidak ditemukan" });
+
+    if (poll.voters.includes(userId)) {
+      return res.status(400).json({ success: false, message: "Anda sudah melakukan vote pada poll ini" });
+    }
+
+    const option = poll.options.id(optionId);
+    if (!option) return res.status(400).json({ success: false, message: "Opsi poll tidak valid" });
+
+    option.votes += 1;
+    poll.voters.push(userId);
+
+    await article.save();
+
+    res.status(200).json({ success: true, message: "Vote berhasil", data: poll });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -12,19 +12,15 @@ const messageSchema = new mongoose.Schema(
     },
     song_id: {
       type: String,
-      required: true,
     },
     song_image: {
       type: String,
-      required: true,
     },
     song_artist: {
       type: String,
-      required: true,
     },
     song_name: {
       type: String,
-      required: true,
     },
     preview_url: {
       type: String,

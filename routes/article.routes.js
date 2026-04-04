@@ -197,4 +197,6 @@ router.delete(
 
 router.post("/articles/:id/react", authMiddleware, articleController.addArticleReaction);
 
+router.post("/articles/:id/polls/:pollId/vote", authMiddleware, articleController.voteArticlePoll);
+
 module.exports = router;
