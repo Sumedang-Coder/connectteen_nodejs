@@ -3,6 +3,7 @@ const { sanitizeMessage, sanitizeMessages } = require("../helpers/utils");
 const Message = require("../models/Message");
 const Reaction = require("../models/Reaction");
 const Comment = require("../models/Comment");
+const User = require("../models/User");
 
 exports.sendMessage = async (req, res) => {
   try {
@@ -54,8 +55,21 @@ exports.getMessages = async (req, res) => {
 
     // Search within public messages
     if (search) {
+      const matchingUsers = await User.find({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { anonymous_name: { $regex: search, $options: "i" } },
+        ],
+      }).select("_id");
+
+      const userIds = matchingUsers.map((u) => u._id);
+
       query.$or = [
         { message: { $regex: search, $options: "i" } },
+        { recipient_name: { $regex: search, $options: "i" } },
+        { song_name: { $regex: search, $options: "i" } },
+        { song_artist: { $regex: search, $options: "i" } },
+        { user: { $in: userIds } },
       ];
     }
 
@@ -101,7 +115,22 @@ exports.getSecretMessages = async (req, res) => {
     };
 
     if (search) {
-      query.$or = [{ message: { $regex: search, $options: "i" } }];
+      const matchingUsers = await User.find({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { anonymous_name: { $regex: search, $options: "i" } },
+        ],
+      }).select("_id");
+
+      const userIds = matchingUsers.map((u) => u._id);
+
+      query.$or = [
+        { message: { $regex: search, $options: "i" } },
+        { recipient_name: { $regex: search, $options: "i" } },
+        { song_name: { $regex: search, $options: "i" } },
+        { song_artist: { $regex: search, $options: "i" } },
+        { user: { $in: userIds } },
+      ];
     }
 
     const totalMessages = await Message.countDocuments(query);
