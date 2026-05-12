@@ -39,6 +39,15 @@ exports.createEvent = async (req, res) => {
       return res.status(400).json({ success: false, message: "Harap unggah poster event" });
     }
 
+    let registrationFields;
+    if (req.body.registration_fields) {
+      try {
+        registrationFields = JSON.parse(req.body.registration_fields);
+      } catch (e) {
+        registrationFields = undefined;
+      }
+    }
+
     const event = new Event({
       event_title: event_title.trim(),
       description: description.trim(),
@@ -49,6 +58,7 @@ exports.createEvent = async (req, res) => {
       visibility: visibility || "public",
       is_online: is_online === "true" || is_online === true,
       link: link || "",
+      ...(registrationFields && { registration_fields: registrationFields }),
       image_url: req.file.path,
       cloudinary_id: req.file.filename,
     });
@@ -305,6 +315,12 @@ exports.getRegistrants = async (req, res) => {
       email: r.user?.email || "Unknown",
       no_hp: r.user?.no_hp || "-",
       avatarUrl: r.user?.avatarUrl || null,
+      reg_name: r.reg_name || "",
+      reg_phone: r.reg_phone || "",
+      reg_address: r.reg_address || "",
+      reg_occupation: r.reg_occupation || "",
+      reg_org_experience: r.reg_org_experience || "",
+      reg_reason: r.reg_reason || "",
       is_attended: r.is_attended,
       attended_at: r.attended_at,
       attendance_token: r.attendance_token,
@@ -405,6 +421,12 @@ exports.registerEvent = async (req, res) => {
           event: eventId,
           user: userId,
           attendance_token: token,
+          reg_name: req.body.reg_name || "",
+          reg_phone: req.body.reg_phone || "",
+          reg_address: req.body.reg_address || "",
+          reg_occupation: req.body.reg_occupation || "",
+          reg_org_experience: req.body.reg_org_experience || "",
+          reg_reason: req.body.reg_reason || "",
         });
 
         await registrant.save();
@@ -515,6 +537,15 @@ exports.updateEvent = async (req, res) => {
       return res.status(400).json({ success: false, message: "Kuota tidak boleh negatif" });
     }
 
+    let registrationFields = event.registration_fields;
+    if (req.body.registration_fields) {
+      try {
+        registrationFields = JSON.parse(req.body.registration_fields);
+      } catch (e) {
+        // keep existing
+      }
+    }
+
     const updateData = {
       event_title: req.body.event_title?.trim() || event.event_title,
       description: req.body.description?.trim() || event.description,
@@ -526,6 +557,7 @@ exports.updateEvent = async (req, res) => {
       visibility: req.body.visibility || event.visibility,
       is_online: req.body.is_online !== undefined ? (req.body.is_online === "true" || req.body.is_online === true) : event.is_online,
       link: req.body.link !== undefined ? req.body.link : event.link,
+      registration_fields: registrationFields,
     };
 
     if (req.file) {
