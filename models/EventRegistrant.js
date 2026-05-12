@@ -24,6 +24,32 @@ const eventRegistrantSchema = new mongoose.Schema(
     attended_at: {
       type: Date,
     },
+    // Registration form data (per-event)
+    reg_name: {
+      type: String,
+      default: "",
+    },
+    reg_phone: {
+      type: String,
+      default: "",
+    },
+    reg_address: {
+      type: String,
+      default: "",
+    },
+    reg_occupation: {
+      type: String,
+      enum: ["", "kerja", "sekolah", "kuliah"],
+      default: "",
+    },
+    reg_org_experience: {
+      type: String,
+      default: "",
+    },
+    reg_reason: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

@@ -84,6 +84,14 @@ const sanitizeEvent = (event, currentUserId) => ({
     ? "full"
     : (event.status || "open"),
   visibility: event.visibility || "public",
+  registration_fields: event.registration_fields || {
+    reg_name: true,
+    reg_phone: true,
+    reg_address: true,
+    reg_occupation: true,
+    reg_org_experience: true,
+    reg_reason: true,
+  },
   registrants_count: event.users ? event.users.length : 0,
   isRegistered: currentUserId
     ? event.users.some(id => id.toString() === currentUserId.toString())

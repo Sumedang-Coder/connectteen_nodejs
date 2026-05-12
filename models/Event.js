@@ -59,6 +59,14 @@ const eventSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+    registration_fields: {
+      reg_name: { type: Boolean, default: true },
+      reg_phone: { type: Boolean, default: true },
+      reg_address: { type: Boolean, default: true },
+      reg_occupation: { type: Boolean, default: true },
+      reg_org_experience: { type: Boolean, default: true },
+      reg_reason: { type: Boolean, default: true },
+    },
   },
   { timestamps: true }
 );
