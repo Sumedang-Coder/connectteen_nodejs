@@ -201,7 +201,7 @@ const guestLogin = async (req, res) => {
         httpOnly: true,
         maxAge: 30 * 24 * 60 * 60 * 1000,
         secure: isProduction,
-        sameSite: isProduction ? "none" : "lax",
+        sameSite: "lax",
         path: "/",
       });
     }
@@ -235,10 +235,11 @@ const guestLogin = async (req, res) => {
 };
 
 const logout = async (req, res) => {
+  const isProduction = process.env.NODE_ENV === "production";
   res.clearCookie("token", {
     httpOnly: true,
-    secure: true,
-    sameSite: "none",
+    secure: isProduction,
+    sameSite: "lax",
     path: "/",
   });
 
@@ -407,7 +408,7 @@ const resetPassword = async (req, res) => {
 
     return res.json({ success: true, message: "Password berhasil diperbarui. Silakan login kembali." });
   } catch (error) {
-    console.errors("[RESET_PASSWORD]", error);
+    console.error("[RESET_PASSWORD]", error);
     return res.status(500).json({ success: false, message: "Kesalahan server" });
   }
 };
