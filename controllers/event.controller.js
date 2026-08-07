@@ -58,6 +58,7 @@ exports.createEvent = async (req, res) => {
       visibility: visibility || "public",
       is_online: is_online === "true" || is_online === true,
       link: link || "",
+      transfer_info: req.body.transfer_info || "",
       ...(registrationFields && { registration_fields: registrationFields }),
       image_url: req.file.path,
       cloudinary_id: req.file.filename,
@@ -321,6 +322,7 @@ exports.getRegistrants = async (req, res) => {
       reg_occupation: r.reg_occupation || "",
       reg_org_experience: r.reg_org_experience || "",
       reg_reason: r.reg_reason || "",
+      reg_transfer_proof_url: r.reg_transfer_proof_url || "",
       is_attended: r.is_attended,
       attended_at: r.attended_at,
       attendance_token: r.attendance_token,
@@ -427,6 +429,8 @@ exports.registerEvent = async (req, res) => {
           reg_occupation: req.body.reg_occupation || "",
           reg_org_experience: req.body.reg_org_experience || "",
           reg_reason: req.body.reg_reason || "",
+          reg_transfer_proof_url: req.file ? req.file.path : "",
+          reg_transfer_proof_cloudinary_id: req.file ? req.file.filename : "",
         });
 
         await registrant.save();
@@ -557,6 +561,7 @@ exports.updateEvent = async (req, res) => {
       visibility: req.body.visibility || event.visibility,
       is_online: req.body.is_online !== undefined ? (req.body.is_online === "true" || req.body.is_online === true) : event.is_online,
       link: req.body.link !== undefined ? req.body.link : event.link,
+      transfer_info: req.body.transfer_info !== undefined ? req.body.transfer_info : event.transfer_info,
       registration_fields: registrationFields,
     };
 

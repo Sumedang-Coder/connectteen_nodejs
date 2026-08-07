@@ -309,6 +309,7 @@ router.get("/events/:id", optionalAuth, eventController.getEventById);
 router.post(
   "/events/:id/register",
   authMiddleware,
+  upload.single("transfer_proof"),
   eventController.registerEvent
 );
 

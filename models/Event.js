@@ -66,6 +66,11 @@ const eventSchema = new mongoose.Schema(
       reg_occupation: { type: Boolean, default: true },
       reg_org_experience: { type: Boolean, default: true },
       reg_reason: { type: Boolean, default: true },
+      reg_transfer_proof: { type: Boolean, default: false },
+    },
+    transfer_info: {
+      type: String,
+      default: "",
     },
   },
   { timestamps: true }

@@ -91,7 +91,9 @@ const sanitizeEvent = (event, currentUserId) => ({
     reg_occupation: true,
     reg_org_experience: true,
     reg_reason: true,
+    reg_transfer_proof: false,
   },
+  transfer_info: event.transfer_info || "",
   registrants_count: event.users ? event.users.length : 0,
   isRegistered: currentUserId
     ? event.users.some(id => id.toString() === currentUserId.toString())

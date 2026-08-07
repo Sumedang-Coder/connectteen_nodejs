@@ -50,6 +50,14 @@ const eventRegistrantSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    reg_transfer_proof_url: {
+      type: String,
+      default: "",
+    },
+    reg_transfer_proof_cloudinary_id: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );
